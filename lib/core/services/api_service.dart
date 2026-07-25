@@ -42,7 +42,7 @@ class ApiService {
   }
 
   // Fetch Models for Brand from Flask /api/models?brand_id=...
-  static Future<List<DeviceModel>> getModels(int brandId) async {
+  static Future<List<DeviceModel>> getModels(String brandId) async {
     try {
       final response = await http.get(Uri.parse('${ApiConstants.models}?brand_id=$brandId'));
       if (response.statusCode == 200) {
@@ -54,6 +54,35 @@ class ApiService {
       print('Error fetching models: $e');
     }
     return [];
+  }
+
+  // Fetch Reviews for Service/Item from Flask /api/reviews?item_name=...
+  static Future<List<Map<String, dynamic>>> getReviews(String itemName) async {
+    try {
+      final response = await http.get(Uri.parse('${ApiConstants.baseUrl}/reviews?item_name=${Uri.encodeComponent(itemName)}'));
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> body = json.decode(response.body);
+        final List data = body['data'] ?? [];
+        return List<Map<String, dynamic>>.from(data);
+      }
+    } catch (e) {
+      print('Error fetching reviews: $e');
+    }
+    return [];
+  }
+
+  // Submit Review to Flask POST /api/reviews
+  static Future<Map<String, dynamic>> submitReview(Map<String, dynamic> reviewPayload) async {
+    try {
+      final response = await http.post(
+        Uri.parse('${ApiConstants.baseUrl}/reviews'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(reviewPayload),
+      );
+      return json.decode(response.body);
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
   }
 
   // Fetch Services Catalog from Flask /api/services

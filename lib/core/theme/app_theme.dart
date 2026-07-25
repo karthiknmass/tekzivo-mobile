@@ -6,7 +6,7 @@ class AppTheme {
   static const Color secondary = Color(0xFF0F172A); // Dark slate
   static const Color accent = Color(0xFFD97706); // Warm Amber/Gold (matching Web app "Book Service" button)
   static const Color accentHover = Color(0xFFB45309);
-  static const Color badgeBg = Color(0xFFE0F2FE); // Soft sky blue icon container
+  static const Color badgeBg = Color(0xFFEFF6FF); // Soft pastel blue icon container (Blue-50)
   static const Color background = Color(0xFFF8FAFC); // Clean off-white
   static const Color cardBg = Colors.white;
   static const Color success = Color(0xFF10B981);
