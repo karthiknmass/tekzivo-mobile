@@ -1,10 +1,10 @@
 import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
-import 'dart:js' as js;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:universal_html/html.dart' as html;
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../../core/services/api_service.dart';
@@ -88,6 +88,13 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isLoadingServices = true;
   List<Brand> _brands = [];
   final List<ServiceItem> _cart = [];
+  int _currentTabIndex = 0;
+  final _trackController = TextEditingController();
+  final _cartNameController = TextEditingController();
+  final _cartPhoneController = TextEditingController();
+  final _cartAddressController = TextEditingController();
+  final _cartFormKey = GlobalKey<FormState>();
+  bool _isCartCheckingOut = false;
 
   Timer? _statusPollingTimer;
   bool _hasNewNotifications = false;
@@ -184,11 +191,9 @@ class _HomeScreenState extends State<HomeScreen> {
   void _requestNotificationPermission() {
     if (kIsWeb) {
       try {
-        js.context.callMethod('eval', ['''
-          if (Notification.permission !== "granted" && Notification.permission !== "denied") {
-            Notification.requestPermission();
-          }
-        ''']);
+        if (html.Notification.permission != "granted" && html.Notification.permission != "denied") {
+          html.Notification.requestPermission();
+        }
       } catch (e) {
         print('Error requesting notification permission: $e');
       }
@@ -198,14 +203,9 @@ class _HomeScreenState extends State<HomeScreen> {
   void _showSystemNotification(String message) {
     if (kIsWeb) {
       try {
-        js.context.callMethod('eval', ['''
-          if (Notification.permission === "granted") {
-            new Notification("Tekzivo Electronics Care", {
-              body: "$message",
-              icon: "assets/assets/images/logo.png"
-            });
-          }
-        ''']);
+        if (html.Notification.permission == "granted") {
+          html.Notification("Tekzivo Electronics Care", body: message);
+        }
       } catch (e) {
         print('Error showing system notification: $e');
       }
@@ -335,6 +335,631 @@ class _HomeScreenState extends State<HomeScreen> {
 
 
 
+  Widget _buildCurrentPage() {
+    switch (_currentTabIndex) {
+      case 1:
+        return _buildTrackPage();
+      case 2:
+        return _buildNotificationsPage();
+      case 3:
+        return _buildCartPage();
+      case 0:
+      default:
+        return _buildCatalogPage();
+    }
+  }
+
+  Widget _buildCatalogPage() {
+    return Column(
+      children: [
+        // Horizontal Category Chips Bar
+        Container(
+          height: 52,
+          color: Colors.white,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            itemCount: _categories.length,
+            itemBuilder: (context, index) {
+              final cat = _categories[index];
+              final isSelected = _selectedCategory == cat;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: GestureDetector(
+                  onTap: () => setState(() => _selectedCategory = cat),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isSelected ? AppTheme.primary.withOpacity(0.08) : Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: isSelected ? AppTheme.primary.withOpacity(0.3) : Colors.grey.shade200,
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _getCategoryIcon(cat),
+                          size: 16,
+                          color: isSelected ? AppTheme.primary : Colors.black54,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          cat,
+                          style: TextStyle(
+                            color: isSelected ? AppTheme.primary : Colors.black87,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+
+        const Divider(height: 1),
+
+        // Catalog Grid
+        Expanded(
+          child: _isLoadingServices
+              ? const Center(child: CircularProgressIndicator())
+              : _filteredServices.isEmpty
+                  ? const Center(child: Text('No services or spare parts available.'))
+                  : RefreshIndicator(
+                      onRefresh: _loadCatalog,
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.all(16),
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final width = constraints.maxWidth;
+                            final categoriesToRender = _selectedCategory == 'All'
+                                ? _categories.where((c) => c != 'All').toList()
+                                : [_selectedCategory];
+
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: categoriesToRender.map((cat) {
+                                final catServices = _allServices.where((s) => s.deviceType == cat).toList();
+                                if (catServices.isEmpty) return const SizedBox.shrink();
+
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _categoryHeader(cat),
+                                    const SizedBox(height: 8),
+                                    SingleChildScrollView(
+                                      scrollDirection: Axis.horizontal,
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(bottom: 12),
+                                        child: Row(
+                                          children: catServices.map((service) {
+                                            final isAccessory = service.deviceType == 'Accessories & Gadgets';
+                                            const double hCardWidth = 160.0;
+                                            return Container(
+                                              width: hCardWidth,
+                                              margin: const EdgeInsets.only(right: 12),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white,
+                                                borderRadius: BorderRadius.circular(16),
+                                                border: Border.all(color: Colors.grey.shade100, width: 1),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: Colors.black.withOpacity(0.04),
+                                                    blurRadius: 8,
+                                                    offset: const Offset(0, 3),
+                                                  ),
+                                                ],
+                                              ),
+                                              child: ClipRRect(
+                                                borderRadius: BorderRadius.circular(16),
+                                                child: Material(
+                                                  color: Colors.transparent,
+                                                  child: InkWell(
+                                                    onTap: () => isAccessory ? _buyNowDirect(service) : _openBookingModal(service),
+                                                    child: Padding(
+                                                      padding: const EdgeInsets.all(12),
+                                                      child: Column(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          // Circular Icon Badge
+                                                          Container(
+                                                            width: 52,
+                                                            height: 52,
+                                                            decoration: BoxDecoration(
+                                                              color: AppTheme.badgeBg,
+                                                              shape: BoxShape.circle,
+                                                              border: Border.all(color: AppTheme.primary.withOpacity(0.08), width: 1),
+                                                            ),
+                                                            child: Center(
+                                                              child: Icon(
+                                                                _getServiceIcon(service.title, service.deviceType),
+                                                                size: 24,
+                                                                color: AppTheme.primary,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                          const SizedBox(height: 10),
+                                                          // Service Title
+                                                          SizedBox(
+                                                            height: 36,
+                                                            child: Text(
+                                                              service.title,
+                                                              textAlign: TextAlign.center,
+                                                              maxLines: 2,
+                                                              overflow: TextOverflow.ellipsis,
+                                                              style: const TextStyle(
+                                                                fontWeight: FontWeight.bold,
+                                                                fontSize: 12,
+                                                                color: Colors.black87,
+                                                                height: 1.2,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                          const SizedBox(height: 10),
+                                                          // Price
+                                                          const Text(
+                                                            'Starts at',
+                                                            style: TextStyle(
+                                                              fontSize: 10,
+                                                              color: Colors.black54,
+                                                            ),
+                                                          ),
+                                                          Text(
+                                                            '₹${service.price.toStringAsFixed(0)}',
+                                                            style: const TextStyle(
+                                                              fontSize: 15,
+                                                              fontWeight: FontWeight.w900,
+                                                              color: AppTheme.accent,
+                                                            ),
+                                                          ),
+                                                          const SizedBox(height: 12),
+                                                          // Action Button(s)
+                                                          if (isAccessory) ...[
+                                                            // Add to Cart Button (Top)
+                                                            OutlinedButton(
+                                                              style: OutlinedButton.styleFrom(
+                                                                foregroundColor: AppTheme.primary,
+                                                                side: const BorderSide(color: AppTheme.primary, width: 1),
+                                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                                                minimumSize: const Size(double.infinity, 30),
+                                                                padding: EdgeInsets.zero,
+                                                              ),
+                                                              onPressed: () => _addToCart(service),
+                                                              child: const Text(
+                                                                'Add to Cart',
+                                                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                                                              ),
+                                                            ),
+                                                            const SizedBox(height: 6),
+                                                            // Buy Now Button (Bottom)
+                                                            ElevatedButton(
+                                                              style: ElevatedButton.styleFrom(
+                                                                backgroundColor: AppTheme.accent,
+                                                                foregroundColor: Colors.white,
+                                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                                                minimumSize: const Size(double.infinity, 30),
+                                                                padding: EdgeInsets.zero,
+                                                                elevation: 0,
+                                                              ),
+                                                              onPressed: () => _buyNowDirect(service),
+                                                              child: const Text(
+                                                                'Buy Now',
+                                                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                                                              ),
+                                                            ),
+                                                          ] else ...[
+                                                            // Book Service Button
+                                                            ElevatedButton(
+                                                              style: ElevatedButton.styleFrom(
+                                                                backgroundColor: AppTheme.accent,
+                                                                foregroundColor: Colors.white,
+                                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                                                minimumSize: const Size(double.infinity, 34),
+                                                                padding: EdgeInsets.zero,
+                                                                elevation: 0,
+                                                              ),
+                                                              onPressed: () => _openBookingModal(service),
+                                                              child: const Text(
+                                                                'Book Service',
+                                                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            );
+                                          }).toList(),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 24),
+                                  ],
+                                );
+                              }).toList(),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTrackPage() {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Icon(Icons.local_shipping_outlined, size: 72, color: AppTheme.primary),
+            const SizedBox(height: 16),
+            const Text(
+              'Track Order Status',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Enter your reference code to check the status of your device repair or order.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey, fontSize: 13, height: 1.4),
+            ),
+            const SizedBox(height: 32),
+            TextField(
+              controller: _trackController,
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                labelText: 'Reference Code',
+                hintText: 'e.g. TKZ-2026-XXXXX',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                prefixIcon: const Icon(Icons.search, color: AppTheme.primary),
+                suffixIcon: _trackController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () {
+                          _trackController.clear();
+                          setState(() {});
+                        },
+                      )
+                    : null,
+              ),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.accent,
+                minimumSize: const Size(double.infinity, 48),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: _trackController.text.trim().isEmpty
+                  ? null
+                  : () {
+                      final ref = _trackController.text.trim();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => BookingStatusScreen(bookingId: ref),
+                        ),
+                      );
+                    },
+              child: const Text(
+                'Track Now',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNotificationsPage() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_hasNewNotifications) {
+        SharedPreferences.getInstance().then((prefs) {
+          prefs.setBool('has_new_notifications', false);
+          if (mounted && _hasNewNotifications) {
+            setState(() {
+              _hasNewNotifications = false;
+            });
+          }
+        });
+      }
+    });
+
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Notifications',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
+              ),
+              if (_notifications.isNotEmpty)
+                TextButton(
+                  onPressed: () async {
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setStringList('user_notifications', []);
+                    setState(() {
+                      _notifications.clear();
+                    });
+                  },
+                  child: const Text('Clear All'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: _notifications.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.notifications_none, size: 64, color: Colors.grey.shade400),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'No new notifications',
+                          style: TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: _notifications.length,
+                    itemBuilder: (context, index) {
+                      final note = _notifications[index];
+                      final refMatch = RegExp(r'TKZ-\d{4}-\d+').firstMatch(note);
+                      final ref = refMatch?.group(0);
+
+                      return Card(
+                        margin: const EdgeInsets.symmetric(vertical: 6),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(color: Colors.grey.shade200, width: 1),
+                        ),
+                        elevation: 0,
+                        color: Colors.white,
+                        child: ListTile(
+                          leading: Container(
+                            width: 38,
+                            height: 38,
+                            decoration: const BoxDecoration(
+                              color: AppTheme.badgeBg,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.info_outline, color: AppTheme.primary, size: 20),
+                          ),
+                          title: Text(
+                            note,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          subtitle: const Text(
+                            'Tap to track status',
+                            style: TextStyle(fontSize: 11, color: Colors.grey),
+                          ),
+                          onTap: ref != null
+                              ? () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => BookingStatusScreen(bookingId: ref),
+                                    ),
+                                  );
+                                }
+                              : null,
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCartPage() {
+    final double total = _cart.fold(0, (sum, item) => sum + item.price);
+
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: _cart.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.shopping_cart_outlined, size: 64, color: Colors.grey.shade400),
+                  const SizedBox(height: 12),
+                  const Text('Your cart is empty', style: TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.w500)),
+                ],
+              ),
+            )
+          : SingleChildScrollView(
+              child: Form(
+                key: _cartFormKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'Shopping Cart',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
+                    ),
+                    const SizedBox(height: 12),
+                    
+                    // Cart Items List
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _cart.length,
+                      itemBuilder: (context, index) {
+                        final item = _cart[index];
+                        return Card(
+                          margin: const EdgeInsets.symmetric(vertical: 4),
+                          elevation: 0,
+                          color: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: BorderSide(color: Colors.grey.shade200),
+                          ),
+                          child: ListTile(
+                            leading: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: const BoxDecoration(color: AppTheme.badgeBg, shape: BoxShape.circle),
+                              child: Icon(_getServiceIcon(item.title, item.deviceType), size: 18, color: AppTheme.primary),
+                            ),
+                            title: Text(item.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                            subtitle: Text(item.deviceType, style: const TextStyle(fontSize: 11)),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text('₹${item.price.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.accent)),
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                                  onPressed: () {
+                                    setState(() {
+                                      _cart.removeAt(index);
+                                    });
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    
+                    const SizedBox(height: 24),
+                    const Divider(),
+                    const SizedBox(height: 8),
+                    
+                    // Checkout Details Form
+                    const Text('Delivery & Checkout', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 12),
+                    
+                    TextFormField(
+                      controller: _cartNameController,
+                      decoration: const InputDecoration(labelText: 'Full Name *', border: OutlineInputBorder()),
+                      validator: (v) => v == null || v.trim().isEmpty ? 'Enter full name' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    
+                    TextFormField(
+                      controller: _cartPhoneController,
+                      keyboardType: TextInputType.phone,
+                      maxLength: 10,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      decoration: const InputDecoration(labelText: '10-Digit Mobile Number *', border: OutlineInputBorder()),
+                      validator: (v) => v == null || v.trim().length != 10 ? 'Enter valid phone' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    
+                    TextFormField(
+                      controller: _cartAddressController,
+                      maxLines: 2,
+                      decoration: const InputDecoration(labelText: 'Delivery Address *', border: OutlineInputBorder()),
+                      validator: (v) => v == null || v.trim().isEmpty ? 'Enter address' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Total & Order Button
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Total Amount:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                        Text('₹${total.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.w900, color: AppTheme.accent, fontSize: 18)),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.accent,
+                        minimumSize: const Size(double.infinity, 48),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: _isCartCheckingOut
+                          ? null
+                          : () async {
+                              if (!_cartFormKey.currentState!.validate()) return;
+                              
+                              setState(() => _isCartCheckingOut = true);
+                              
+                              final payload = {
+                                'name': _cartNameController.text.trim(),
+                                'phone': _cartPhoneController.text.trim(),
+                                'pincode': '600001',
+                                'address': _cartAddressController.text.trim(),
+                                'device_type': 'Accessories & Gadgets',
+                                'issue_type': _cart.map((item) => item.title).join(', '),
+                                'preferred_date': DateFormat('yyyy-MM-dd').format(DateTime.now()),
+                                'time_slot': 'Anytime',
+                                'estimated_price': total
+                              };
+                              
+                              final result = await ApiService.createBooking(payload);
+                              
+                              setState(() => _isCartCheckingOut = false);
+                              
+                              if (result['success'] == true || result['data'] != null) {
+                                final data = result['data'] ?? result;
+                                final refCode = data['booking_ref'] ?? data['booking_id'] ?? 'TKZ-SUCCESS';
+                                
+                                final prefs = await SharedPreferences.getInstance();
+                                final list = prefs.getStringList('my_bookings') ?? [];
+                                if (!list.contains(refCode)) {
+                                  list.add(refCode);
+                                  await prefs.setStringList('my_bookings', list);
+                                  
+                                  final cachedStatuses = Map<String, String>.from(
+                                    json.decode(prefs.getString('booking_statuses') ?? '{}'),
+                                  );
+                                  cachedStatuses[refCode] = 'Pending';
+                                  await prefs.setString('booking_statuses', json.encode(cachedStatuses));
+                                }
+                                
+                                setState(() {
+                                  _cart.clear();
+                                  _currentTabIndex = 0; // Go to home tab
+                                });
+                                _showOrderPlacedDialog(refCode);
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Error: ${result['error'] ?? result['message'] ?? 'Failed to place order'}')),
+                                );
+                              }
+                            },
+                      child: _isCartCheckingOut
+                          ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : const Text('Place Order (COD)', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -344,333 +969,65 @@ class _HomeScreenState extends State<HomeScreen> {
           children: const [
             Icon(Icons.build_circle_outlined, color: Colors.amberAccent),
             SizedBox(width: 8),
-            Text('TekzivoElectronics Care', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            Text('Tekzivo Electronics Care', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
           ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.local_shipping_outlined),
-            tooltip: 'Track Order',
-            onPressed: _showTrackDialog,
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentTabIndex,
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: AppTheme.primary,
+        unselectedItemColor: Colors.black54,
+        onTap: (index) {
+          setState(() {
+            _currentTabIndex = index;
+          });
+        },
+        items: [
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.home_outlined),
+            activeIcon: Icon(Icons.home, color: AppTheme.primary),
+            label: 'Home',
           ),
-          Badge(
-            isLabelVisible: _hasNewNotifications,
-            child: IconButton(
-              icon: const Icon(Icons.notifications_outlined),
-              tooltip: 'Notifications',
-              onPressed: _showNotificationsDialog,
-            ),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.local_shipping_outlined),
+            label: 'Track',
           ),
-          Badge(
-            isLabelVisible: _cart.isNotEmpty,
-            label: Text(_cart.length.toString()),
-            child: IconButton(
-              icon: const Icon(Icons.shopping_cart_outlined),
-              tooltip: 'Cart',
-              onPressed: _showCartDialog,
+          BottomNavigationBarItem(
+            icon: Badge(
+              isLabelVisible: _hasNewNotifications,
+              child: const Icon(Icons.notifications_outlined),
             ),
+            label: 'Notifications',
+          ),
+          BottomNavigationBarItem(
+            icon: Badge(
+              isLabelVisible: _cart.isNotEmpty,
+              label: Text(_cart.length.toString()),
+              child: const Icon(Icons.shopping_cart_outlined),
+            ),
+            label: 'Cart',
           ),
         ],
       ),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 680),
-          child: Column(
-            children: [
-              // Hero Banner matching Web App Royal Blue Gradient
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xFF1D4ED8), Color(0xFF4F46E5)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Premium Doorstep Repair Service',
-                      style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'Get expert repair solutions for your devices with quick turnaround times and fully certified technicians right at your doorstep.',
-                      style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
-                    ),
-                    const SizedBox(height: 14),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: const [
-                        _BannerBadge(icon: '⚡', label: '2hr Doorstep Service'),
-                        _BannerBadge(icon: '🛡️', label: '90-Day Warranty'),
-                        _BannerBadge(icon: '👨‍🔧', label: 'Certified Technicians'),
-                        _BannerBadge(icon: '💎', label: '100% Genuine Spares'),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              // Horizontal Category Chips Bar
-              Container(
-                height: 52,
-                color: Colors.white,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  itemCount: _categories.length,
-                  itemBuilder: (context, index) {
-                    final cat = _categories[index];
-                    final isSelected = _selectedCategory == cat;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: GestureDetector(
-                        onTap: () => setState(() => _selectedCategory = cat),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: isSelected ? AppTheme.primary.withOpacity(0.08) : Colors.grey.shade50,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: isSelected ? AppTheme.primary.withOpacity(0.3) : Colors.grey.shade200,
-                              width: 1,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                _getCategoryIcon(cat),
-                                size: 16,
-                                color: isSelected ? AppTheme.primary : Colors.black54,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                cat,
-                                style: TextStyle(
-                                  color: isSelected ? AppTheme.primary : Colors.black87,
-                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-
-              const Divider(height: 1),
-
-              // Catalog Grid
-              Expanded(
-                child: _isLoadingServices
-                    ? const Center(child: CircularProgressIndicator())
-                    : _filteredServices.isEmpty
-                        ? const Center(child: Text('No services or spare parts available.'))
-                        : RefreshIndicator(
-                            onRefresh: _loadCatalog,
-                            child: SingleChildScrollView(
-                              physics: const AlwaysScrollableScrollPhysics(),
-                              padding: const EdgeInsets.all(16),
-                              child: LayoutBuilder(
-                                builder: (context, constraints) {
-                                  final width = constraints.maxWidth;
-                                  final int columns = width > 900
-                                      ? 4
-                                      : width > 600
-                                          ? 3
-                                          : 2;
-                                  final double cardWidth = (width - (columns - 1) * 16) / columns;
-
-                                  final categoriesToRender = _selectedCategory == 'All'
-                                      ? _categories.where((c) => c != 'All').toList()
-                                      : [_selectedCategory];
-
-                                  return Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: categoriesToRender.map((cat) {
-                                      final catServices = _allServices.where((s) => s.deviceType == cat).toList();
-                                      if (catServices.isEmpty) return const SizedBox.shrink();
-
-                                      return Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          _categoryHeader(cat),
-                                          const SizedBox(height: 8),
-                                          Wrap(
-                                            spacing: 16,
-                                            runSpacing: 16,
-                                            children: catServices.map((service) {
-                                              final isAccessory = service.deviceType == 'Accessories & Gadgets';
-
-                                              return Container(
-                                                width: cardWidth,
-                                                decoration: BoxDecoration(
-                                                  color: Colors.white,
-                                                  borderRadius: BorderRadius.circular(20),
-                                                  border: Border.all(color: Colors.grey.shade100, width: 1),
-                                                  boxShadow: [
-                                                    BoxShadow(
-                                                      color: Colors.black.withOpacity(0.04),
-                                                      blurRadius: 10,
-                                                      offset: const Offset(0, 4),
-                                                    ),
-                                                  ],
-                                                ),
-                                                child: ClipRRect(
-                                                  borderRadius: BorderRadius.circular(20),
-                                                  child: Material(
-                                                    color: Colors.transparent,
-                                                    child: InkWell(
-                                                      onTap: () => isAccessory ? _buyNowDirect(service) : _openBookingModal(service),
-                                                      hoverColor: AppTheme.primary.withOpacity(0.02),
-                                                      splashColor: AppTheme.primary.withOpacity(0.05),
-                                                      child: Padding(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                                                        child: Column(
-                                                          mainAxisSize: MainAxisSize.min,
-                                                          crossAxisAlignment: CrossAxisAlignment.center,
-                                                          children: [
-                                                            // Circular Icon Badge
-                                                            Container(
-                                                              width: 60,
-                                                              height: 60,
-                                                              decoration: BoxDecoration(
-                                                                color: AppTheme.badgeBg,
-                                                                shape: BoxShape.circle,
-                                                                border: Border.all(color: AppTheme.primary.withOpacity(0.08), width: 1),
-                                                              ),
-                                                              child: Center(
-                                                                child: Icon(
-                                                                  _getServiceIcon(service.title, service.deviceType),
-                                                                  size: 28,
-                                                                  color: AppTheme.primary,
-                                                                ),
-                                                              ),
-                                                            ),
-                                                            const SizedBox(height: 12),
-                                                            
-                                                            // Service Title
-                                                            Text(
-                                                              '${service.deviceType} - ${service.title}',
-                                                              textAlign: TextAlign.center,
-                                                              maxLines: 2,
-                                                              overflow: TextOverflow.ellipsis,
-                                                              style: const TextStyle(
-                                                                fontWeight: FontWeight.bold,
-                                                                fontSize: 13,
-                                                                color: Colors.black87,
-                                                                height: 1.3,
-                                                              ),
-                                                            ),
-                                                            const SizedBox(height: 12),
-
-                                                            // Price Section
-                                                            const Text(
-                                                              'Starts at',
-                                                              style: TextStyle(
-                                                                fontSize: 11,
-                                                                color: Colors.black54,
-                                                                fontWeight: FontWeight.bold,
-                                                              ),
-                                                            ),
-                                                            const SizedBox(height: 2),
-                                                            Text(
-                                                              '₹${service.price.toStringAsFixed(0)}',
-                                                              style: const TextStyle(
-                                                                fontWeight: FontWeight.w900,
-                                                                fontSize: 18,
-                                                                color: AppTheme.accent,
-                                                              ),
-                                                            ),
-                                                            const SizedBox(height: 14),
-
-                                                            // Action Button(s)
-                                                            if (isAccessory) ...[
-                                                              // Add to Cart Button (Top)
-                                                              OutlinedButton(
-                                                                style: OutlinedButton.styleFrom(
-                                                                  foregroundColor: AppTheme.primary,
-                                                                  side: const BorderSide(color: AppTheme.primary, width: 1.2),
-                                                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                                                  minimumSize: const Size(double.infinity, 36),
-                                                                ),
-                                                                onPressed: () => _addToCart(service),
-                                                                child: const Text(
-                                                                  'Add to Cart',
-                                                                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12, letterSpacing: 0.5),
-                                                                ),
-                                                              ),
-                                                              const SizedBox(height: 8),
-                                                              // Buy Now Button (Bottom)
-                                                              ElevatedButton(
-                                                                style: ElevatedButton.styleFrom(
-                                                                  backgroundColor: AppTheme.accent,
-                                                                  foregroundColor: Colors.white,
-                                                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                                                  minimumSize: const Size(double.infinity, 36),
-                                                                  elevation: 1,
-                                                                  shadowColor: AppTheme.accent.withOpacity(0.2),
-                                                                ),
-                                                                onPressed: () => _buyNowDirect(service),
-                                                                child: const Text(
-                                                                  'Buy Now',
-                                                                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12, letterSpacing: 0.5),
-                                                                ),
-                                                              ),
-                                                            ] else ...[
-                                                              // Book Service Button
-                                                              ElevatedButton(
-                                                                style: ElevatedButton.styleFrom(
-                                                                  backgroundColor: AppTheme.accent,
-                                                                  foregroundColor: Colors.white,
-                                                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                                                  minimumSize: const Size(double.infinity, 38),
-                                                                  elevation: 1,
-                                                                  shadowColor: AppTheme.accent.withOpacity(0.2),
-                                                                ),
-                                                                onPressed: () => _openBookingModal(service),
-                                                                child: const Text(
-                                                                  'Book Service',
-                                                                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, letterSpacing: 0.5),
-                                                                ),
-                                                              ),
-                                                            ],
-                                                          ],
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                              );
-                                            }).toList(),
-                                          ),
-                                          const SizedBox(height: 24),
-                                        ],
-                                      );
-                                    }).toList(),
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
-              ),
-            ],
-          ),
+          child: _buildCurrentPage(),
         ),
       ),
     );
   }
 
   void _buyNowDirect(ServiceItem item) {
-    _showCheckoutDialog(item.price);
+    if (!_cart.contains(item)) {
+      setState(() {
+        _cart.add(item);
+      });
+    }
+    setState(() {
+      _currentTabIndex = 3;
+    });
   }
 
   Widget _categoryHeader(String category) {
@@ -729,7 +1086,11 @@ class _HomeScreenState extends State<HomeScreen> {
         action: SnackBarAction(
           label: 'VIEW',
           textColor: Colors.white,
-          onPressed: _showCartDialog,
+          onPressed: () {
+            setState(() {
+              _currentTabIndex = 3;
+            });
+          },
         ),
       ),
     );
@@ -1676,7 +2037,17 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
 
               // Customer Reviews Section
               _isLoadingReviews
-                  ? const Center(child: Padding(padding: EdgeInsets.all(8.0), child: CircularProgressIndicator(strokeWidth: 2)))
+                  ? SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: List.generate(2, (index) => Container(
+                          width: 260,
+                          height: 80,
+                          margin: const EdgeInsets.only(right: 10),
+                          child: const SkeletonLoader(width: 260, height: 80, borderRadius: 8),
+                        )),
+                      ),
+                    )
                   : _reviews.isEmpty
                       ? const SizedBox.shrink()
                       : Container(
@@ -1778,7 +2149,7 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _isLoadingBrands
-                            ? const Padding(padding: EdgeInsets.all(12), child: Center(child: CircularProgressIndicator(strokeWidth: 2)))
+                            ? const SkeletonLoader(width: double.infinity, height: 50, borderRadius: 12)
                             : _brands.isEmpty
                                 ? TextFormField(
                                     controller: _customBrandController,
@@ -1811,7 +2182,7 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _isLoadingModels
-                            ? const Padding(padding: EdgeInsets.all(12), child: Center(child: CircularProgressIndicator(strokeWidth: 2)))
+                            ? const SkeletonLoader(width: double.infinity, height: 50, borderRadius: 12)
                             : (_models.isEmpty || _selectedBrand?.id == 'custom')
                                 ? TextFormField(
                                     controller: _customModelController,
@@ -2078,3 +2449,56 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
     );
   }
 }
+
+class SkeletonLoader extends StatefulWidget {
+  final double width;
+  final double height;
+  final double borderRadius;
+
+  const SkeletonLoader({
+    super.key,
+    required this.width,
+    required this.height,
+    this.borderRadius = 8,
+  });
+
+  @override
+  State<SkeletonLoader> createState() => _SkeletonLoaderState();
+}
+
+class _SkeletonLoaderState extends State<SkeletonLoader> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    )..repeat(reverse: true);
+    _animation = Tween<double>(begin: 0.4, end: 0.8).animate(_controller);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _animation,
+      child: Container(
+        width: widget.width,
+        height: widget.height,
+        decoration: BoxDecoration(
+          color: Colors.grey.shade200,
+          borderRadius: BorderRadius.circular(widget.borderRadius),
+        ),
+      ),
+    );
+  }
+}
+
