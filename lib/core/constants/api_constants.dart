@@ -1,16 +1,31 @@
-class ApiConstants {
-  // Replace with your server URL when running on device or PythonAnywhere live host
-  // For Android Emulator to access host machine localhost, use 10.0.2.2
-  static const String baseUrl = 'https://karthikeyankasi.pythonanywhere.com/api';
-  // static const String baseUrl = 'http://192.168.29.101:5000/api';
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 
-  static const String checkPincode = '$baseUrl/check-pincode';
-  static const String services = '$baseUrl/services';
-  static const String brands = '$baseUrl/brands';
-  static const String models = '$baseUrl/models';
-  static const String bookings = '$baseUrl/bookings';
-  static const String technicians = '$baseUrl/technicians';
-  static const String dashboardStats = '$baseUrl/dashboard/stats';
-  static const String settings = '$baseUrl/settings';
-  static const String serviceAreas = '$baseUrl/service-areas';
+class ApiConstants {
+  // Live Production URL Path
+  static const String baseUrl = 'https://karthikeyankasi.pythonanywhere.com/api';
+
+  
+  // Local Backend URLs (Commented out)
+  // static String get baseUrl {
+  //   if (kIsWeb) {
+  //     return 'http://localhost:5000/api';
+  //   } else if (Platform.isAndroid) {
+  //     return 'http://10.0.2.2:5000/api'; // Android Emulator bridge
+  //   } else {
+  //     return 'http://127.0.0.1:5000/api'; // iOS Simulator or desktop
+  //   }
+  // }
+  
+  
+
+  static String get checkPincode => '$baseUrl/check-pincode';
+  static String get services => '$baseUrl/services';
+  static String get brands => '$baseUrl/brands';
+  static String get models => '$baseUrl/models';
+  static String get bookings => '$baseUrl/bookings';
+  static String get technicians => '$baseUrl/technicians';
+  static String get dashboardStats => '$baseUrl/dashboard/stats';
+  static String get settings => '$baseUrl/settings';
+  static String get serviceAreas => '$baseUrl/service-areas';
 }

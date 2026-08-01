@@ -1,6 +1,6 @@
 {
-    "name": "tekzivo_mobile",
-    "short_name": "tekzivo_mobile",
+    "name": "Tekzivo",
+    "short_name": "Tekzivo",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
