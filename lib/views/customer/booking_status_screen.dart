@@ -48,16 +48,16 @@ class _BookingStatusScreenState extends State<BookingStatusScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: const Text('Track Shipment'),
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
-        foregroundColor: Colors.black87,
+        foregroundColor: isDark ? Colors.white : Colors.black87,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.black87),
+            icon: Icon(Icons.refresh, color: isDark ? Colors.white : Colors.black87),
             onPressed: _loadBooking,
           ),
         ],

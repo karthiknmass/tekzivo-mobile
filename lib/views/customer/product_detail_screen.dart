@@ -1,7 +1,12 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/service_item.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/constants/api_constants.dart';
+import '../../core/services/api_service.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final ServiceItem product;
@@ -162,9 +167,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final defaultDesc = widget.product.description.isNotEmpty
         ? widget.product.description
         : "Experience premium, certified quality hardware accessories and parts from Tekzivo. Optimized for durability and long-term device performance.";
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
@@ -172,7 +178,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               expandedHeight: 340,
               floating: false,
               pinned: true,
-              backgroundColor: Colors.white,
+              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
               elevation: 0,
               leadingWidth: 64,
               leading: Padding(
@@ -184,11 +190,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                         shape: BoxShape.circle,
                         boxShadow: AppTheme.premiumShadow,
+                        border: Border.all(color: isDark ? const Color(0xFF2C2C2C) : Colors.transparent, width: 1),
                       ),
-                      child: const Icon(Icons.chevron_left, color: Colors.black87, size: 24),
+                      child: Icon(Icons.chevron_left, color: isDark ? Colors.white : Colors.black87, size: 24),
                     ),
                   ),
                 ),
@@ -205,11 +212,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                         shape: BoxShape.circle,
                         boxShadow: AppTheme.premiumShadow,
+                        border: Border.all(color: isDark ? const Color(0xFF2C2C2C) : Colors.transparent, width: 1),
                       ),
-                      child: const Icon(Icons.share_outlined, color: Colors.black87, size: 20),
+                      child: Icon(Icons.share_outlined, color: isDark ? Colors.white : Colors.black87, size: 20),
                     ),
                   ),
                 ),
@@ -226,13 +234,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                         shape: BoxShape.circle,
                         boxShadow: AppTheme.premiumShadow,
+                        border: Border.all(color: isDark ? const Color(0xFF2C2C2C) : Colors.transparent, width: 1),
                       ),
                       child: Icon(
                         _isWishlisted ? Icons.favorite : Icons.favorite_border,
-                        color: _isWishlisted ? AppTheme.accent : Colors.black87,
+                        color: _isWishlisted ? AppTheme.accent : (isDark ? Colors.white : Colors.black87),
                         size: 20,
                       ),
                     ),
@@ -242,7 +251,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               ],
               flexibleSpace: FlexibleSpaceBar(
                 background: Container(
-                  color: const Color(0xFFF8FAFC),
+                  color: isDark ? const Color(0xFF151515) : const Color(0xFFF8FAFC),
                   child: Stack(
                     alignment: Alignment.bottomCenter,
                     children: [
@@ -277,10 +286,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                           width: 260,
                                           height: 260,
                                           decoration: BoxDecoration(
-                                            color: Colors.white,
+                                            color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                                             borderRadius: BorderRadius.circular(24),
                                             boxShadow: AppTheme.premiumShadow,
-                                            border: Border.all(color: Colors.white, width: 3),
+                                            border: Border.all(color: isDark ? const Color(0xFF2C2C2C) : Colors.white, width: 3),
                                           ),
                                           child: !showPlaceholder
                                               ? ClipRRect(
@@ -350,10 +359,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               // Product Title
               Text(
                 widget.product.title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF0F172A),
+                  color: isDark ? Colors.white : const Color(0xFF0F172A),
                 ),
               ),
               const SizedBox(height: 8),
@@ -373,14 +382,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
+                      color: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF1F5F9),
                       borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: isDark ? const Color(0xFF2C2C2C) : Colors.grey.shade200, width: 1),
                     ),
                     child: Text(
                       'Seller: ${widget.product.brandName ?? 'Tekzivo Official'}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: Colors.black87,
+                        color: isDark ? Colors.white70 : Colors.black87,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -395,7 +405,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.amber.shade50,
+                      color: Colors.amber.shade900.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: Colors.amber.withOpacity(0.3)),
                     ),
@@ -415,10 +425,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const Text(
+                  Text(
                     '(320 Reviews)',
                     style: TextStyle(
-                      color: Colors.black45,
+                      color: isDark ? Colors.white38 : Colors.black45,
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                     ),
@@ -431,20 +441,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  Text(
                     'Color Picker',
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A),
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
                     ),
                   ),
                   Text(
                     _parsedColors[_selectedColorIndex]['name'],
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: Colors.black54,
+                      color: isDark ? Colors.white70 : Colors.black54,
                     ),
                   ),
                 ],
@@ -504,16 +514,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         child: Container(
           height: 80,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border(top: BorderSide(color: Colors.grey.shade100, width: 1)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.03),
-                blurRadius: 10,
-                offset: const Offset(0, -4),
-              ),
-            ],
+          decoration: const BoxDecoration(
+            color: Color(0xFF151515),
+            border: Border(top: BorderSide(color: Color(0xFF242424), width: 1.5)),
           ),
           child: Row(
             children: [
@@ -522,13 +525,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 height: 48,
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9),
+                  color: const Color(0xFF1E1E1E),
                   borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: const Color(0xFF2C2C2C), width: 1),
                 ),
                 child: Row(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.remove, color: Colors.black87, size: 18),
+                      icon: const Icon(Icons.remove, color: Colors.white, size: 18),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                       onPressed: () {
@@ -541,14 +545,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     Text(
                       '$_quantity',
                       style: const TextStyle(
-                        color: Colors.black87,
+                        color: Colors.white,
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(width: 8),
                     IconButton(
-                      icon: const Icon(Icons.add, color: Colors.black87, size: 18),
+                      icon: const Icon(Icons.add, color: Colors.white, size: 18),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                       onPressed: () {
@@ -558,14 +562,45 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   ],
                 ),
               ),
-              const SizedBox(width: 16),
-              // Cart submit button
+              const SizedBox(width: 12),
+              // Add to Cart Button (Secondary style)
+              Expanded(
+                child: SizedBox(
+                  height: 48,
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFF2C2C2C)),
+                      foregroundColor: Colors.white70,
+                      backgroundColor: const Color(0xFF1E1E1E),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                    ),
+                    onPressed: () {
+                      widget.onAddToCart(_quantity);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Added to Cart!'), duration: Duration(seconds: 1)),
+                      );
+                    },
+                    icon: const Icon(Icons.shopping_bag_outlined, size: 16, color: Colors.white70),
+                    label: const Text(
+                      'Add to Cart',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              // Buy Now Button (Prominent Brand Orange-Red)
               Expanded(
                 child: SizedBox(
                   height: 48,
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primary,
+                      backgroundColor: const Color(0xFFE0533C),
                       foregroundColor: Colors.white,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
@@ -573,14 +608,21 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       ),
                     ),
                     onPressed: () {
-                      widget.onAddToCart(_quantity);
-                      Navigator.pop(context);
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (context) => QuickCheckoutModalSheet(
+                          product: widget.product,
+                          quantity: _quantity,
+                        ),
+                      );
                     },
-                    icon: const Icon(Icons.shopping_bag_outlined, size: 18),
+                    icon: const Icon(Icons.flash_on, size: 16),
                     label: const Text(
-                      'Add to Cart',
+                      'Buy Now',
                       style: TextStyle(
-                        fontSize: 15,
+                        fontSize: 13,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -596,19 +638,30 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   Widget _buildTabItem(int index, String label) {
     final isSelected = index == _selectedTabIndex;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
       onTap: () => setState(() => _selectedTabIndex = index),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primary : const Color(0xFFF1F5F9),
+          color: isSelected
+              ? const Color(0xFFE0533C)
+              : (isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF1F5F9)),
           borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected
+                ? Colors.transparent
+                : (isDark ? const Color(0xFF2C2C2C) : Colors.transparent),
+            width: 1,
+          ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? Colors.white : Colors.black54,
+            color: isSelected
+                ? Colors.white
+                : (isDark ? Colors.white70 : Colors.black54),
             fontWeight: FontWeight.bold,
             fontSize: 13,
           ),
@@ -642,11 +695,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         );
       case 0:
       default:
+        final bool isDark = Theme.of(context).brightness == Brightness.dark;
         return Text(
           defaultDesc,
           key: const ValueKey(0),
-          style: const TextStyle(
-            color: Colors.black54,
+          style: TextStyle(
+            color: isDark ? Colors.white70 : Colors.black87,
             fontSize: 13,
             height: 1.5,
           ),
@@ -655,30 +709,38 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   Widget _specRow(String label, String value, bool isEven) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color rowBg = isEven
+        ? (isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF8FAFC))
+        : (isDark ? const Color(0xFF151515) : Colors.white);
+    final Color labelColor = isDark ? Colors.white60 : Colors.black54;
+    final Color valueColor = isDark ? Colors.white : Colors.black87;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: isEven ? const Color(0xFFF8FAFC) : Colors.white,
+        color: rowBg,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: Colors.black54, fontSize: 13, fontWeight: FontWeight.w500)),
-          Text(value, style: const TextStyle(color: Colors.black87, fontSize: 13, fontWeight: FontWeight.bold)),
+          Text(label, style: TextStyle(color: labelColor, fontSize: 13, fontWeight: FontWeight.w500)),
+          Text(value, style: TextStyle(color: valueColor, fontSize: 13, fontWeight: FontWeight.bold)),
         ],
       ),
     );
   }
 
   Widget _reviewRow(String name, double rating, String comment) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8.0),
       padding: const EdgeInsets.all(12.0),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade50,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade100),
+        border: Border.all(color: isDark ? const Color(0xFF2C2C2C) : Colors.grey.shade200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -692,15 +754,446 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   return Icon(
                     Icons.star,
                     size: 12,
-                    color: index < rating ? Colors.amber : Colors.grey.shade300,
+                    color: index < rating ? Colors.amber : (isDark ? Colors.grey.shade700 : Colors.grey.shade300),
                   );
                 }),
               ),
             ],
           ),
           const SizedBox(height: 6),
-          Text(comment, style: const TextStyle(color: Colors.black54, fontSize: 12, height: 1.4)),
+          Text(comment, style: TextStyle(color: isDark ? Colors.white70 : Colors.black87, fontSize: 12, height: 1.4)),
         ],
+      ),
+    );
+  }
+}
+
+class QuickCheckoutModalSheet extends StatefulWidget {
+  final ServiceItem product;
+  final int quantity;
+
+  const QuickCheckoutModalSheet({
+    super.key,
+    required this.product,
+    required this.quantity,
+  });
+
+  @override
+  State<QuickCheckoutModalSheet> createState() => _QuickCheckoutModalSheetState();
+}
+
+class _QuickCheckoutModalSheetState extends State<QuickCheckoutModalSheet> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _addressController = TextEditingController();
+
+  int _currentStep = 0;
+  bool _isSubmitting = false;
+
+  void _nextStep() {
+    if (_currentStep == 0) {
+      if (!_formKey.currentState!.validate()) return;
+    }
+    setState(() => _currentStep++);
+  }
+
+  void _prevStep() {
+    setState(() => _currentStep--);
+  }
+
+  Future<void> _submitOrder() async {
+    setState(() => _isSubmitting = true);
+
+    final double total = widget.product.price * widget.quantity;
+    final payload = {
+      'name': _nameController.text.trim(),
+      'phone': _phoneController.text.trim(),
+      'pincode': '600001',
+      'address': _addressController.text.trim(),
+      'device_type': 'Accessories & Gadgets',
+      'issue_type': '${widget.product.title} (Qty: ${widget.quantity})',
+      'preferred_date': DateFormat('yyyy-MM-dd').format(DateTime.now()),
+      'time_slot': 'Anytime',
+      'estimated_price': total
+    };
+
+    final result = await ApiService.createBooking(payload);
+
+    setState(() => _isSubmitting = false);
+
+    if (result['success'] == true || result['data'] != null) {
+      final data = result['data'] ?? result;
+      final refCode = data['booking_ref'] ?? data['booking_id'] ?? 'TKZ-SUCCESS';
+
+      SharedPreferences.getInstance().then((prefs) {
+        final list = prefs.getStringList('my_bookings') ?? [];
+        if (!list.contains(refCode)) {
+          list.add(refCode);
+          prefs.setStringList('my_bookings', list);
+          
+          final cachedStatuses = Map<String, String>.from(
+            json.decode(prefs.getString('booking_statuses') ?? '{}'),
+          );
+          cachedStatuses[refCode] = 'Pending';
+          prefs.setString('booking_statuses', json.encode(cachedStatuses));
+        }
+      });
+
+      // Close bottom sheet
+      Navigator.pop(context);
+      // Show Success Dialog
+      _showSuccessDialog(refCode);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: ${result['error'] ?? result['message'] ?? 'Failed to place order'}')),
+      );
+    }
+  }
+
+  void _showSuccessDialog(String refCode) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircleAvatar(
+              radius: 30,
+              backgroundColor: AppTheme.success,
+              child: Icon(Icons.check, color: Colors.white, size: 36),
+            ),
+            const SizedBox(height: 16),
+            const Text('Order Placed Successfully!', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Text('Reference Code: $refCode', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primary, fontSize: 14)),
+            const SizedBox(height: 8),
+            const Text('Thank you! Your gadget will be delivered within 2-3 business days.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 13)),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.black,
+                minimumSize: const Size(double.infinity, 40),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: const BorderSide(color: Colors.black12, width: 1),
+                ),
+                shadowColor: Colors.black.withOpacity(0.1),
+                elevation: 2,
+              ),
+              onPressed: () {
+                Navigator.pop(context); // Pop dialog
+                Navigator.pop(context); // Pop details screen to go back to home screen catalog!
+              },
+              child: const Text('Done', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  InputDecoration _inputDecoration({required String labelText, IconData? prefixIcon}) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    return InputDecoration(
+      labelText: labelText,
+      prefixIcon: prefixIcon != null ? Icon(prefixIcon, color: isDark ? const Color(0xFFE0533C) : AppTheme.primary, size: 20) : null,
+      filled: true,
+      fillColor: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF8FAFC),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: isDark ? const Color(0xFF3A3A3A) : Colors.grey.shade200),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: isDark ? const Color(0xFF3A3A3A) : Colors.grey.shade200),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFFE0533C)),
+      ),
+      labelStyle: TextStyle(color: isDark ? Colors.white70 : Colors.black54, fontSize: 13),
+    );
+  }
+
+  Widget _buildStepContactDetails() {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'SHIPPING DETAILS',
+          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.white60 : Colors.black54, letterSpacing: 0.8),
+        ),
+        const SizedBox(height: 10),
+        TextFormField(
+          controller: _nameController,
+          style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 13),
+          decoration: _inputDecoration(labelText: 'Full Name *', prefixIcon: Icons.person_outline),
+          validator: (v) => v == null || v.trim().isEmpty ? 'Enter full name' : null,
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _phoneController,
+          keyboardType: TextInputType.phone,
+          maxLength: 10,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 13),
+          decoration: _inputDecoration(labelText: '10-Digit Mobile Number *', prefixIcon: Icons.phone_outlined),
+          validator: (v) {
+            if (v == null || v.trim().isEmpty) return 'Enter mobile number';
+            final trimmed = v.trim();
+            if (trimmed.length != 10) return 'Mobile number must be 10 digits';
+            if (!RegExp(r'^[6-9]\d{9}$').hasMatch(trimmed)) return 'Must start with 6, 7, 8, or 9';
+            return null;
+          },
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _addressController,
+          maxLines: 3,
+          style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 13),
+          decoration: _inputDecoration(labelText: 'Full Delivery Address *', prefixIcon: Icons.home_outlined),
+          validator: (v) => v == null || v.trim().isEmpty ? 'Enter delivery address' : null,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStepSummary() {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final double total = widget.product.price * widget.quantity;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'PURCHASE SUMMARY TICKET',
+          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.white60 : Colors.black54, letterSpacing: 0.8),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: isDark ? const Color(0xFF2C2C2C) : Colors.grey.shade200),
+          ),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFFE0533C), Color(0xFFC0392B)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(19)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.shopping_bag_outlined, color: Colors.white, size: 22),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        widget.product.title,
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 15),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    _summaryRow('Quantity', '${widget.quantity} unit(s)'),
+                    const SizedBox(height: 8),
+                    _summaryRow('Customer', _nameController.text.trim()),
+                    const SizedBox(height: 8),
+                    _summaryRow('Mobile No.', _phoneController.text.trim()),
+                    const SizedBox(height: 8),
+                    _summaryRow('Delivery Address', _addressController.text.trim()),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Divider(color: isDark ? const Color(0xFF2C2C2C) : const Color(0xFFF1F5F9), height: 1),
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Total Amount', style: TextStyle(color: isDark ? Colors.white70 : Colors.black54, fontSize: 13)),
+                        Text('₹${total.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.w900, color: AppTheme.accent, fontSize: 18)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _summaryRow(String label, String value) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 110,
+          child: Text(label, style: TextStyle(color: isDark ? Colors.white38 : Colors.grey, fontSize: 12)),
+        ),
+        Expanded(
+          child: Text(value, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white70 : Colors.black87, fontSize: 12)),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color sheetBg = isDark ? const Color(0xFF121212) : Colors.white;
+    final Color titleColor = isDark ? Colors.white : Colors.black87;
+    final Color dividerColor = isDark ? const Color(0xFF2C2C2C) : const Color(0xFFF1F5F9);
+    final Color closeBgColor = isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade100;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: sheetBg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        boxShadow: const [
+          BoxShadow(color: Colors.black26, blurRadius: 16, spreadRadius: 2),
+        ],
+      ),
+      padding: EdgeInsets.only(
+        top: 10,
+        left: 20,
+        right: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
+      child: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF333333) : Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Quick Checkout',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  IconButton(
+                    style: IconButton.styleFrom(
+                      backgroundColor: closeBgColor,
+                      minimumSize: const Size(32, 32),
+                    ),
+                    icon: Icon(Icons.close, size: 18, color: titleColor),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              Divider(height: 20, color: dividerColor),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'STEP ${_currentStep + 1} OF 2',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFE0533C), letterSpacing: 0.8),
+                  ),
+                  Text(
+                    _currentStep == 0 ? 'Shipping Details' : 'Summary & Order',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: titleColor),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(3),
+                child: LinearProgressIndicator(
+                  value: (_currentStep + 1) / 2.0,
+                  minHeight: 6,
+                  backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade100,
+                  valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFE0533C)),
+                ),
+              ),
+              const SizedBox(height: 20),
+              _currentStep == 0 ? _buildStepContactDetails() : _buildStepSummary(),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  if (_currentStep > 0)
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 12),
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(double.infinity, 48),
+                            side: BorderSide(color: isDark ? const Color(0xFF3A3A3A) : const Color(0xFFE2E8F0)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                          ),
+                          onPressed: _prevStep,
+                          child: Text(
+                            'Back',
+                            style: TextStyle(
+                              color: isDark ? Colors.white70 : Colors.black87,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: Colors.black,
+                        minimumSize: const Size(double.infinity, 48),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(24),
+                          side: const BorderSide(color: Colors.black12, width: 1),
+                        ),
+                        shadowColor: Colors.black.withOpacity(0.1),
+                        elevation: 2,
+                      ),
+                      onPressed: _isSubmitting 
+                          ? null 
+                          : (_currentStep == 1 ? _submitOrder : _nextStep),
+                      child: _isSubmitting
+                          ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2))
+                          : Text(
+                              _currentStep == 1 ? 'CONFIRM ORDER' : 'Continue',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black),
+                            ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../../core/services/api_service.dart';
 import '../../core/theme/app_theme.dart';
+import 'package:provider/provider.dart';
 import '../../core/constants/api_constants.dart';
 import '../../models/brand.dart';
 import '../../models/service_item.dart';
@@ -86,6 +87,20 @@ String _resolveImageUrl(String? path) {
   return '$base/$cleanPath';
 }
 
+class CardStyle {
+  final Color cardBg;
+  final Color iconBg;
+  final Color iconColor;
+  final Color textColor;
+
+  const CardStyle({
+    required this.cardBg,
+    required this.iconBg,
+    required this.iconColor,
+    required this.textColor,
+  });
+}
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -94,6 +109,67 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  CardStyle _getCardStyle(String title, String deviceType) {
+    final lowerTitle = title.toLowerCase();
+    if (lowerTitle.contains('battery')) {
+      return const CardStyle(
+        cardBg: Color(0xFFFAF0ED), // Soft peach
+        iconBg: Color(0xFFF2D3CC),
+        iconColor: Color(0xFF8A3A2B),
+        textColor: Color(0xFF8A3A2B),
+      );
+    } else if (lowerTitle.contains('screen') || lowerTitle.contains('display') || lowerTitle.contains('glass') || lowerTitle.contains('panel')) {
+      return const CardStyle(
+        cardBg: Color(0xFFEAF4FC), // Soft blue
+        iconBg: Color(0xFFD4E6F7),
+        iconColor: Color(0xFF1A5F9E),
+        textColor: Color(0xFF1A5F9E),
+      );
+    } else if (lowerTitle.contains('keyboard') || lowerTitle.contains('button') || lowerTitle.contains('key') || lowerTitle.contains('repair')) {
+      if (lowerTitle.contains('keyboard') || lowerTitle.contains('key')) {
+        return const CardStyle(
+          cardBg: Color(0xFFEBF6F0), // Soft green
+          iconBg: Color(0xFFD4ECE0),
+          iconColor: Color(0xFF1E6F4A),
+          textColor: Color(0xFF1E6F4A),
+        );
+      }
+    }
+    
+    if (lowerTitle.contains('motherboard') || lowerTitle.contains('ic') || lowerTitle.contains('chip') || lowerTitle.contains('board')) {
+      return const CardStyle(
+        cardBg: Color(0xFFFAF5E6), // Soft gold
+        iconBg: Color(0xFFF3EAD0),
+        iconColor: Color(0xFF8E6B1E),
+        textColor: Color(0xFF8E6B1E),
+      );
+    }
+
+    // Default fallbacks based on category to keep layout color-coordinated
+    if (deviceType == 'Smartphone') {
+      return const CardStyle(
+        cardBg: Color(0xFFEAF4FC),
+        iconBg: Color(0xFFD4E6F7),
+        iconColor: Color(0xFF1A5F9E),
+        textColor: Color(0xFF1A5F9E),
+      );
+    } else if (deviceType == 'Laptop') {
+      return const CardStyle(
+        cardBg: Color(0xFFEBF6F0),
+        iconBg: Color(0xFFD4ECE0),
+        iconColor: Color(0xFF1E6F4A),
+        textColor: Color(0xFF1E6F4A),
+      );
+    } else {
+      return const CardStyle(
+        cardBg: Color(0xFFFAF5E6),
+        iconBg: Color(0xFFF3EAD0),
+        iconColor: Color(0xFF8E6B1E),
+        textColor: Color(0xFF8E6B1E),
+      );
+    }
+  }
+
   String _selectedCategory = 'All';
   final List<String> _categories = [
     'All',
@@ -431,17 +507,38 @@ class _HomeScreenState extends State<HomeScreen> {
                     itemCount: wishlistedItems.length,
                     itemBuilder: (context, index) {
                       final item = wishlistedItems[index];
-                      return Card(
+                      final bool isDark = Theme.of(context).brightness == Brightness.dark;
+                      final Color cardColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+                      final Color borderColor = isDark ? const Color(0xFF2C2C2C) : Colors.white;
+                      final Color badgeColor = isDark ? const Color(0xFF151515) : AppTheme.badgeBg;
+                      final Color accentIconColor = isDark ? const Color(0xFFE0533C) : AppTheme.primary;
+                      final Color titleTextColor = isDark ? Colors.white : Colors.black87;
+
+                      return Container(
                         margin: const EdgeInsets.symmetric(vertical: 6),
-                        elevation: 0,
-                        color: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: BorderSide(color: Colors.grey.shade200),
+                        decoration: BoxDecoration(
+                          color: cardColor,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: borderColor, width: 1.5),
+                          boxShadow: isDark
+                              ? [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.2),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ]
+                              : [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.04),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
                         ),
                         child: ListTile(
                           onTap: () {
-                            Navigator.push(
+                            Navigator.push<String>(
                               context,
                               MaterialPageRoute(
                                 builder: (context) => ProductDetailScreen(
@@ -451,12 +548,21 @@ class _HomeScreenState extends State<HomeScreen> {
                                   onAddToCart: (qty) => _addToCartWithQuantity(item, qty),
                                 ),
                               ),
-                            );
+                            ).then((result) {
+                              if (result == 'buy_now') {
+                                setState(() => _currentTabIndex = 3);
+                              }
+                            });
                           },
                           leading: Container(
                             width: 40,
                             height: 40,
-                            decoration: const BoxDecoration(color: AppTheme.badgeBg, shape: BoxShape.circle),
+                            decoration: BoxDecoration(
+                              color: item.imagePath != null && item.imagePath!.isNotEmpty
+                                  ? Colors.transparent
+                                  : badgeColor,
+                              shape: BoxShape.circle,
+                            ),
                             child: item.imagePath != null && item.imagePath!.isNotEmpty
                                 ? ClipRRect(
                                     borderRadius: BorderRadius.circular(20),
@@ -466,32 +572,32 @@ class _HomeScreenState extends State<HomeScreen> {
                                       errorBuilder: (context, error, stackTrace) => Icon(
                                         _getServiceIcon(item.title, item.deviceType),
                                         size: 20,
-                                        color: AppTheme.primary,
+                                        color: accentIconColor,
                                       ),
                                     ),
                                   )
                                 : Icon(
                                     _getServiceIcon(item.title, item.deviceType),
                                     size: 20,
-                                    color: AppTheme.primary,
+                                    color: accentIconColor,
                                   ),
                           ),
-                          title: Text(item.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                          title: Text(item.title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: titleTextColor)),
                           subtitle: Text('₹${item.price.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.accent)),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               IconButton(
-                                icon: const Icon(Icons.shopping_cart_outlined, color: AppTheme.primary),
-                                onPressed: () {
-                                  _addToCart(item);
-                                },
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.delete_outline, color: Colors.red),
-                                onPressed: () {
-                                  _toggleWishlist(item.id);
-                                },
+                                  icon: Icon(Icons.shopping_cart_outlined, color: accentIconColor),
+                                  onPressed: () {
+                                    _addToCart(item);
+                                  },
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                  onPressed: () {
+                                    _toggleWishlist(item.id);
+                                  },
                               ),
                             ],
                           ),
@@ -503,11 +609,14 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
     );
-  }
-
-  Widget _buildCatalogTabs() {
+  }  Widget _buildCatalogTabs() {
     final cataloguesCount = _allServices.where((s) => s.deviceType != 'Accessories & Gadgets').length;
     final productsCount = _allServices.where((s) => s.deviceType == 'Accessories & Gadgets').length;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color activeColor = const Color(0xFFE0533C);
+    final Color inactiveBgColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    final Color inactiveBorderColor = isDark ? const Color(0xFF2C2C2C) : Colors.white;
+    final Color inactiveTextColor = isDark ? Colors.white70 : Colors.black54;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
@@ -529,9 +638,24 @@ class _HomeScreenState extends State<HomeScreen> {
                 height: 44,
                 decoration: BoxDecoration(
                   color: _currentCatalogTab == 'Catalogues'
-                      ? AppTheme.primary // Active solid blue background
-                      : const Color(0xFFF1F5F9), // Inactive light grey
+                      ? activeColor
+                      : inactiveBgColor,
                   borderRadius: BorderRadius.circular(22),
+                  border: Border.all(
+                    color: _currentCatalogTab == 'Catalogues'
+                        ? Colors.transparent
+                        : inactiveBorderColor,
+                    width: 1.5,
+                  ),
+                  boxShadow: _currentCatalogTab == 'Catalogues'
+                      ? null
+                      : [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.04),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -542,8 +666,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
                         color: _currentCatalogTab == 'Catalogues'
-                            ? Colors.white // Active white text
-                            : Colors.black54, // Inactive grey text
+                            ? Colors.white
+                            : inactiveTextColor,
                       ),
                     ),
                     const SizedBox(width: 6),
@@ -552,7 +676,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       decoration: BoxDecoration(
                         color: _currentCatalogTab == 'Catalogues'
                             ? Colors.white24
-                            : AppTheme.primary.withOpacity(0.1),
+                            : const Color(0xFFE0533C).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
@@ -560,7 +684,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         style: TextStyle(
                           color: _currentCatalogTab == 'Catalogues'
                               ? Colors.white
-                              : AppTheme.primary,
+                              : const Color(0xFFE0533C),
                           fontSize: 9,
                           fontWeight: FontWeight.bold,
                         ),
@@ -586,9 +710,24 @@ class _HomeScreenState extends State<HomeScreen> {
                 height: 44,
                 decoration: BoxDecoration(
                   color: _currentCatalogTab == 'Products'
-                      ? AppTheme.primary // Active solid blue background
-                      : const Color(0xFFF1F5F9), // Inactive light grey
+                      ? activeColor
+                      : inactiveBgColor,
                   borderRadius: BorderRadius.circular(22),
+                  border: Border.all(
+                    color: _currentCatalogTab == 'Products'
+                        ? Colors.transparent
+                        : inactiveBorderColor,
+                    width: 1.5,
+                  ),
+                  boxShadow: _currentCatalogTab == 'Products'
+                      ? null
+                      : [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.04),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -599,8 +738,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
                         color: _currentCatalogTab == 'Products'
-                            ? Colors.white // Active white text
-                            : Colors.black54, // Inactive grey text
+                            ? Colors.white
+                            : inactiveTextColor,
                       ),
                     ),
                     const SizedBox(width: 6),
@@ -609,7 +748,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       decoration: BoxDecoration(
                         color: _currentCatalogTab == 'Products'
                             ? Colors.white24
-                            : AppTheme.primary.withOpacity(0.1),
+                            : const Color(0xFFE0533C).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
@@ -617,7 +756,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         style: TextStyle(
                           color: _currentCatalogTab == 'Products'
                               ? Colors.white
-                              : AppTheme.primary,
+                              : const Color(0xFFE0533C),
                           fontSize: 9,
                           fontWeight: FontWeight.bold,
                         ),
@@ -634,6 +773,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildSearchAndFilterBar() {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color searchBg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    final Color searchBorder = isDark ? const Color(0xFF2C2C2C) : Colors.white;
+    final Color textColor = isDark ? Colors.white : Colors.black87;
+    final Color placeholderColor = isDark ? Colors.white38 : Colors.black38;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
       child: Row(
@@ -643,8 +788,24 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Container(
               height: 48,
               decoration: BoxDecoration(
-                color: const Color(0xFFF1F5F9), // Light slate color matching mockup
+                color: searchBg,
                 borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: searchBorder, width: 1.5),
+                boxShadow: isDark
+                    ? [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ]
+                    : [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
               ),
               child: TextField(
                 onChanged: (val) {
@@ -652,25 +813,26 @@ class _HomeScreenState extends State<HomeScreen> {
                     _searchQuery = val.trim();
                   });
                 },
-                decoration: const InputDecoration(
+                style: TextStyle(color: textColor, fontSize: 13),
+                decoration: InputDecoration(
                   hintText: "What's on your list?",
-                  hintStyle: TextStyle(color: Colors.black38, fontSize: 13),
-                  prefixIcon: Icon(Icons.search, color: Colors.black45, size: 20),
+                  hintStyle: TextStyle(color: placeholderColor, fontSize: 13),
+                  prefixIcon: Icon(Icons.search, color: placeholderColor, size: 20),
                   border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(vertical: 14),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
                 ),
               ),
             ),
           ),
           const SizedBox(width: 12),
-          // Black Circular Filter Button
+          // Circular Filter Button
           GestureDetector(
             onTap: _showFilterBottomSheet,
             child: Container(
               width: 48,
               height: 48,
               decoration: const BoxDecoration(
-                color: AppTheme.primary, // Using primary theme blue color instead of black
+                color: Color(0xFFE0533C),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -686,8 +848,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showFilterBottomSheet() {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     showModalBottomSheet(
       context: context,
+      backgroundColor: isDark ? const Color(0xFF151515) : Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -703,9 +867,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
+                      Text(
                         'Filter & Sort',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
                       ),
                       TextButton(
                         onPressed: () {
@@ -714,14 +882,21 @@ class _HomeScreenState extends State<HomeScreen> {
                             _filterCategory = 'All';
                           });
                         },
-                        child: const Text('Reset', style: TextStyle(color: Colors.redAccent)),
+                        child: const Text('Reset', style: TextStyle(color: Color(0xFFE0533C))),
                       ),
                     ],
                   ),
                   const SizedBox(height: 16),
                   
                   // Sort By Section
-                  const Text('Sort By', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  Text(
+                    'Sort By',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: isDark ? Colors.white70 : Colors.black87,
+                    ),
+                  ),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
@@ -747,7 +922,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   // Category Section (only for Catalogues)
                   if (_currentCatalogTab == 'Catalogues') ...[
-                    const Text('Service Category', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    Text(
+                      'Service Category',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: isDark ? Colors.white70 : Colors.black87,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
@@ -767,10 +949,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   // Apply Button
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primary,
-                      foregroundColor: Colors.white,
+                      backgroundColor: Colors.white,
+                      foregroundColor: Colors.black,
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: const BorderSide(color: Colors.black12, width: 1),
+                      ),
+                      shadowColor: Colors.black.withOpacity(0.1),
+                      elevation: 2,
                     ),
                     onPressed: () {
                       setState(() {}); // Apply changes to home screen
@@ -788,17 +975,25 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _filterChip({required String label, required bool isSelected, required VoidCallback onTap}) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color selectedBg = const Color(0xFFE0533C).withOpacity(0.12);
+    final Color unselectedBg = isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF1F5F9);
+    final Color selectedTextColor = const Color(0xFFE0533C);
+    final Color unselectedTextColor = isDark ? Colors.white70 : Colors.black87;
+    final Color selectedBorderColor = const Color(0xFFE0533C);
+    final Color unselectedBorderColor = isDark ? const Color(0xFF2C2C2C) : Colors.grey.shade200;
+
     return GestureDetector(
       onTap: onTap,
       child: Chip(
         label: Text(label),
-        backgroundColor: isSelected ? AppTheme.primary.withOpacity(0.08) : Colors.grey.shade50,
+        backgroundColor: isSelected ? selectedBg : unselectedBg,
         labelStyle: TextStyle(
-          color: isSelected ? AppTheme.primary : Colors.black87,
+          color: isSelected ? selectedTextColor : unselectedTextColor,
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
         ),
         side: BorderSide(
-          color: isSelected ? AppTheme.primary : Colors.grey.shade200,
+          color: isSelected ? selectedBorderColor : unselectedBorderColor,
         ),
       ),
     );
@@ -809,9 +1004,9 @@ class _HomeScreenState extends State<HomeScreen> {
       {
         'title': '⚡ 2hr Doorstep Screen Repair',
         'subtitle': 'Original screens & certified technicians.',
-        'action': 'Book Now',
+        'action': 'Book now',
         'gradient': const LinearGradient(
-          colors: [Color(0xFF1D4ED8), Color(0xFF3B82F6)],
+          colors: [Color(0xFF1E3A8A), Color(0xFF0F172A)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -820,9 +1015,9 @@ class _HomeScreenState extends State<HomeScreen> {
       {
         'title': '🛡️ 90-Day Tekzivo Warranty',
         'subtitle': 'Enjoy worry-free device services.',
-        'action': 'Learn More',
+        'action': 'Learn more',
         'gradient': const LinearGradient(
-          colors: [Color(0xFFD97706), Color(0xFFF59E0B)],
+          colors: [Color(0xFF065F46), Color(0xFF022C22)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -831,9 +1026,9 @@ class _HomeScreenState extends State<HomeScreen> {
       {
         'title': '🎧 Premium Accessories 15% OFF',
         'subtitle': 'Upgrade your sound & charging experience.',
-        'action': 'Shop Now',
+        'action': 'Shop now',
         'gradient': const LinearGradient(
-          colors: [Color(0xFF0F172A), Color(0xFF334155)],
+          colors: [Color(0xFF5B21B6), Color(0xFF2E1065)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -909,15 +1104,15 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                                 const SizedBox(height: 10),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                                   decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
+                                    color: const Color(0xFFE0533C),
+                                    borderRadius: BorderRadius.circular(16),
                                   ),
                                   child: Text(
                                     banner['action'] as String,
-                                    style: TextStyle(
-                                      color: (banner['gradient'] as LinearGradient).colors.first,
+                                    style: const TextStyle(
+                                      color: Colors.white,
                                       fontSize: 11,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -952,7 +1147,7 @@ class _HomeScreenState extends State<HomeScreen> {
               width: _activePromoPage == index ? 14 : 6,
               height: 6,
               decoration: BoxDecoration(
-                color: _activePromoPage == index ? AppTheme.primary : const Color(0xFFCBD5E1),
+                color: _activePromoPage == index ? const Color(0xFFE0533C) : const Color(0xFF444444),
                 borderRadius: BorderRadius.circular(3),
               ),
             ),
@@ -1074,6 +1269,12 @@ class _HomeScreenState extends State<HomeScreen> {
       return const Center(child: Text('No categories available.'));
     }
 
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color currentCardBg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    final Color currentTextPrimary = isDark ? Colors.white : Colors.black87;
+    final Color currentTextSecondary = isDark ? Colors.white54 : Colors.black54;
+    final Color currentBorderColor = isDark ? const Color(0xFF2C2C2C) : const Color(0xFFE2E8F0);
+
     bool hasAnyMatches = false;
     final List<Widget> sections = [];
 
@@ -1116,95 +1317,109 @@ class _HomeScreenState extends State<HomeScreen> {
                       width: hCardWidth,
                       margin: const EdgeInsets.only(right: 12),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: currentCardBg,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.grey.shade100, width: 1),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.04),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
+                        border: Border.all(color: currentBorderColor, width: 1),
+                        boxShadow: isDark
+                            ? [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.2),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ]
+                            : [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.04),
+                                  blurRadius: 15,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(16),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () => _openBookingModal(service),
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Container(
-                                    width: 52,
-                                    height: 52,
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.badgeBg,
-                                      shape: BoxShape.circle,
-                                      border: Border.all(color: AppTheme.primary.withOpacity(0.08), width: 1),
-                                    ),
-                                    child: service.imagePath != null && service.imagePath!.isNotEmpty
-                                        ? ClipRRect(
-                                            borderRadius: BorderRadius.circular(26),
-                                            child: Image.network(
-                                              _resolveImageUrl(service.imagePath),
-                                              fit: BoxFit.cover,
-                                              errorBuilder: (context, error, stackTrace) => Center(
-                                                child: Icon(
-                                                  _getServiceIcon(service.title, service.deviceType),
-                                                  size: 24,
-                                                  color: AppTheme.primary,
-                                                ),
-                                              ),
-                                            ),
-                                          )
-                                        : Center(
-                                            child: Icon(
-                                              _getServiceIcon(service.title, service.deviceType),
-                                              size: 24,
-                                              color: AppTheme.primary,
-                                            ),
-                                          ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  SizedBox(
-                                    height: 36,
-                                    child: Text(
-                                      service.title,
-                                      textAlign: TextAlign.center,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                        color: Colors.black87,
-                                        height: 1.2,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  const Text(
-                                    'Starts at',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: Colors.black54,
-                                    ),
-                                  ),
-                                  Text(
-                                    '₹${service.price.toStringAsFixed(0)}',
-                                    style: const TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w900,
-                                      color: AppTheme.accent,
-                                    ),
-                                  ),
-                                ],
+                        child: Stack(
+                          children: [
+                            // Left edge accent line
+                            Positioned(
+                              left: 0,
+                              top: 0,
+                              bottom: 0,
+                              child: Container(
+                                width: 4,
+                                color: const Color(0xFFE0533C),
                               ),
                             ),
-                          ),
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () => _openBookingModal(service),
+                                child: Padding(
+                                  padding: const EdgeInsets.only(left: 16, top: 16, right: 12, bottom: 16),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      // Standalone Left-Aligned Icon (No Circle Bg)
+                                      service.imagePath != null && service.imagePath!.isNotEmpty
+                                          ? ClipRRect(
+                                              borderRadius: BorderRadius.circular(4),
+                                              child: Image.network(
+                                                _resolveImageUrl(service.imagePath),
+                                                width: 24,
+                                                height: 24,
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (context, error, stackTrace) => Icon(
+                                                  _getServiceIcon(service.title, service.deviceType),
+                                                  size: 24,
+                                                  color: const Color(0xFFE0533C),
+                                                ),
+                                              ),
+                                            )
+                                          : Icon(
+                                              _getServiceIcon(service.title, service.deviceType),
+                                              size: 24,
+                                              color: const Color(0xFFE0533C),
+                                            ),
+                                      const SizedBox(height: 16),
+                                      SizedBox(
+                                        height: 36,
+                                        child: Text(
+                                          service.title,
+                                          textAlign: TextAlign.left,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13,
+                                            color: currentTextPrimary,
+                                            height: 1.2,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        'Starts at',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: currentTextSecondary,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        '₹${service.price.toStringAsFixed(0)}',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w900,
+                                          color: currentTextPrimary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     );
@@ -1297,11 +1512,17 @@ class _HomeScreenState extends State<HomeScreen> {
           itemBuilder: (context, index) {
             final product = products[index];
             final isWish = _wishlistedIds.contains(product.id);
+            final bool isDark = Theme.of(context).brightness == Brightness.dark;
+            final Color cardColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+            final Color imgBgColor = isDark ? const Color(0xFF151515) : const Color(0xFFF1F5F9);
+            final Color titleColor = isDark ? Colors.white : Colors.black87;
+            final Color borderColor = isDark ? const Color(0xFF2C2C2C) : const Color(0xFFE2E8F0);
+
             return Stack(
               children: [
                 GestureDetector(
                   onTap: () {
-                    Navigator.push(
+                    Navigator.push<String>(
                       context,
                       MaterialPageRoute(
                         builder: (context) => ProductDetailScreen(
@@ -1311,23 +1532,35 @@ class _HomeScreenState extends State<HomeScreen> {
                           onAddToCart: (qty) => _addToCartWithQuantity(product, qty),
                         ),
                       ),
-                    ).then((_) {
-                      // Reload state on returning back to ensure wishlist is perfectly in sync
-                      setState(() {});
+                    ).then((result) {
+                      if (result == 'buy_now') {
+                        setState(() => _currentTabIndex = 3);
+                      } else {
+                        // Reload state on returning back to ensure wishlist is perfectly in sync
+                        setState(() {});
+                      }
                     });
                   },
                   child: Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: cardColor,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.grey.shade100, width: 1),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.02),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
+                      border: Border.all(color: borderColor, width: 1),
+                      boxShadow: isDark
+                          ? [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.2),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ]
+                          : [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.04),
+                                blurRadius: 15,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(16),
@@ -1338,9 +1571,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           Expanded(
                             child: Container(
                               width: double.infinity,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFF8FAFC),
-                                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                              decoration: BoxDecoration(
+                                color: imgBgColor,
+                                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                               ),
                               child: product.imagePath != null && product.imagePath!.isNotEmpty
                                   ? ClipRRect(
@@ -1348,20 +1581,20 @@ class _HomeScreenState extends State<HomeScreen> {
                                       child: Image.network(
                                         _resolveImageUrl(product.imagePath),
                                         fit: BoxFit.cover,
-                                        errorBuilder: (context, error, stackTrace) => Center(
+                                        errorBuilder: (context, error, stackTrace) => const Center(
                                           child: Icon(
-                                            _getServiceIcon(product.title, product.deviceType),
+                                            Icons.devices_other_outlined,
                                             size: 40,
-                                            color: AppTheme.primary,
+                                            color: Color(0xFFE0533C),
                                           ),
                                         ),
                                       ),
                                     )
-                                  : Center(
+                                  : const Center(
                                       child: Icon(
-                                        _getServiceIcon(product.title, product.deviceType),
+                                        Icons.devices_other_outlined,
                                         size: 40,
-                                        color: AppTheme.primary,
+                                        color: Color(0xFFE0533C),
                                       ),
                                     ),
                             ),
@@ -1375,13 +1608,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.primary.withOpacity(0.08),
+                                    color: const Color(0xFFE0533C).withOpacity(0.12),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
-                                  child: Text(
-                                    product.price > 1000 ? 'Best Seller' : 'New in',
-                                    style: const TextStyle(
-                                      color: AppTheme.primary,
+                                  child: const Text(
+                                    'New in',
+                                    style: TextStyle(
+                                      color: Color(0xFFE0533C),
                                       fontSize: 8,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -1393,10 +1626,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                   product.title,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 13,
-                                    color: Colors.black87,
+                                    color: titleColor,
                                   ),
                                 ),
                                 const SizedBox(height: 4),
@@ -1406,10 +1639,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                   children: [
                                     Text(
                                       '₹${product.price.toStringAsFixed(0)}',
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w900,
-                                        color: AppTheme.accent,
+                                        color: isDark ? Colors.white : AppTheme.accent,
                                       ),
                                     ),
                                     // Shopping Cart Icon Button (Bottom Right)
@@ -1418,13 +1651,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                       child: Container(
                                         padding: const EdgeInsets.all(6),
                                         decoration: BoxDecoration(
-                                          color: AppTheme.primary.withOpacity(0.08),
+                                          color: const Color(0xFFE0533C).withOpacity(0.08),
                                           shape: BoxShape.circle,
                                         ),
                                         child: const Icon(
                                           Icons.add_shopping_cart_outlined,
                                           size: 14,
-                                          color: AppTheme.primary,
+                                          color: Color(0xFFE0533C),
                                         ),
                                       ),
                                     ),
@@ -1665,7 +1898,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(20),
                             boxShadow: AppTheme.premiumShadow,
-                            border: Border.all(color: const Color(0xFFF1F5F9)),
+                            border: Border.all(color: Colors.white, width: 1.5),
                           ),
                           child: ListTile(
                             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -1899,37 +2132,24 @@ class _HomeScreenState extends State<HomeScreen> {
     switch (_currentTabIndex) {
       case 0:
         return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Image.asset(
-                  'assets/images/logo.png',
-                  height: 22,
-                  errorBuilder: (context, error, stackTrace) {
-                    return const Icon(Icons.build_circle_outlined, color: AppTheme.primary, size: 18);
-                  },
-                ),
-                const SizedBox(width: 6),
-                const Text(
-                  'Tekzivo',
-                  style: TextStyle(
-                    color: AppTheme.primary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 20,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-              ],
+            Image.asset(
+              'assets/images/logo.png',
+              height: 28,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                return const Icon(Icons.build_circle_outlined, color: Color(0xFFE0533C), size: 24);
+              },
             ),
+            const SizedBox(height: 2),
             const Text(
               'electronics care',
               style: TextStyle(
-                color: AppTheme.accent,
-                fontSize: 10,
-                letterSpacing: 0.5,
+                color: Color(0xFFE0533C),
+                fontSize: 8,
+                letterSpacing: 0.8,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -1939,7 +2159,7 @@ class _HomeScreenState extends State<HomeScreen> {
         return const Text(
           'Wishlist',
           style: TextStyle(
-            color: Colors.black87,
+            color: Colors.white,
             fontWeight: FontWeight.bold,
             fontSize: 20,
           ),
@@ -1948,7 +2168,7 @@ class _HomeScreenState extends State<HomeScreen> {
         return const Text(
           'Track Shipment',
           style: TextStyle(
-            color: Colors.black87,
+            color: Colors.white,
             fontWeight: FontWeight.bold,
             fontSize: 20,
           ),
@@ -1957,7 +2177,7 @@ class _HomeScreenState extends State<HomeScreen> {
         return const Text(
           'Shopping Cart',
           style: TextStyle(
-            color: Colors.black87,
+            color: Colors.white,
             fontWeight: FontWeight.bold,
             fontSize: 20,
           ),
@@ -1970,9 +2190,8 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         centerTitle: false,
         title: Padding(
@@ -1980,15 +2199,31 @@ class _HomeScreenState extends State<HomeScreen> {
           child: _buildAppBarTitle(),
         ),
         actions: [
+          Consumer<ThemeProvider>(
+            builder: (context, themeProvider, child) {
+              final isDark = Theme.of(context).brightness == Brightness.dark;
+              return IconButton(
+                icon: Icon(
+                  isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
+                onPressed: () {
+                  themeProvider.toggleTheme(!isDark);
+                },
+              );
+            },
+          ),
           Padding(
             padding: const EdgeInsets.only(right: 8.0),
             child: IconButton(
               onPressed: _showNotificationsDialog,
               icon: Badge(
                 isLabelVisible: _hasNewNotifications,
-                child: const Icon(
+                child: Icon(
                   Icons.notifications_none_outlined,
-                  color: Colors.black87,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white
+                      : Colors.black87,
                   size: 24,
                 ),
               ),
@@ -1998,10 +2233,10 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       bottomNavigationBar: Container(
         height: 60 + MediaQuery.of(context).padding.bottom,
-        decoration: BoxDecoration(
-          color: Colors.white,
+        decoration: const BoxDecoration(
+          color: Color(0xFF151515),
           border: Border(
-            top: BorderSide(color: Colors.grey.shade100, width: 1.5),
+            top: BorderSide(color: Color(0xFF242424), width: 1.5),
           ),
         ),
         child: SafeArea(
@@ -2028,8 +2263,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildFlatNavItem(int index, IconData outlineIcon, IconData filledIcon, String label, {int badgeCount = 0}) {
     final isSelected = _currentTabIndex == index;
-    final activeColor = AppTheme.primary;
-    final inactiveColor = const Color(0xFF94A3B8); // Slate 400
+    final activeColor = const Color(0xFFE0533C);
+    final inactiveColor = const Color(0xFF6B7280);
 
     return Expanded(
       child: InkWell(
@@ -2059,9 +2294,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(2),
                       decoration: BoxDecoration(
-                        color: AppTheme.accent,
+                        color: const Color(0xFFE0533C),
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 1.5),
+                        border: Border.all(color: const Color(0xFF151515), width: 1.5),
                       ),
                       constraints: const BoxConstraints(
                         minWidth: 16,
@@ -2111,43 +2346,50 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _categoryHeader(String category) {
     String title = '';
+    Color indicatorColor = AppTheme.primary;
     switch (category) {
       case 'Smartphone':
-        title = 'Smartphone Services & Parts';
+        title = 'Smartphone services';
+        indicatorColor = const Color(0xFF3B82F6);
         break;
       case 'Laptop':
-        title = 'Laptop Services & Parts';
+        title = 'Laptop services';
+        indicatorColor = const Color(0xFF10B981);
         break;
       case 'LED TV':
-        title = 'LED TV Services & Parts';
+        title = 'LED TV services';
+        indicatorColor = const Color(0xFFF59E0B);
         break;
       case 'Accessories & Gadgets':
-        title = 'Accessories & Gadgets Catalog';
+        title = 'Accessories & Gadgets';
+        indicatorColor = const Color(0xFF8B5CF6);
         break;
       default:
-        title = '$category Services & Parts';
+        title = '$category services';
+        indicatorColor = AppTheme.accent;
     }
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF0F172A),
+          Container(
+            width: 4,
+            height: 18,
+            decoration: BoxDecoration(
+              color: indicatorColor,
+              borderRadius: BorderRadius.circular(2),
             ),
           ),
-          const SizedBox(height: 6),
-          Container(
-            width: 50,
-            height: 3,
-            decoration: BoxDecoration(
-              color: AppTheme.primary,
-              borderRadius: BorderRadius.circular(1.5),
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
+              letterSpacing: -0.2,
             ),
           ),
         ],
@@ -2230,7 +2472,12 @@ class _HomeScreenState extends State<HomeScreen> {
                           leading: Container(
                             width: 32,
                             height: 32,
-                            decoration: const BoxDecoration(color: AppTheme.badgeBg, shape: BoxShape.circle),
+                            decoration: BoxDecoration(
+                              color: item.imagePath != null && item.imagePath!.isNotEmpty
+                                  ? Colors.transparent
+                                  : AppTheme.badgeBg,
+                              shape: BoxShape.circle,
+                            ),
                             child: item.imagePath != null && item.imagePath!.isNotEmpty
                                 ? ClipRRect(
                                     borderRadius: BorderRadius.circular(16),
@@ -2482,7 +2729,7 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('Track Order Status'),
         content: TextField(
           controller: c,
-          decoration: const InputDecoration(hintText: 'Enter Reference (e.g. TKZ-00000)', border: OutlineInputBorder()),
+          decoration: InputDecoration(hintText: 'Enter Reference (e.g. TKZ-00000)', border: OutlineInputBorder()),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
@@ -2854,7 +3101,7 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: nameController,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Your Name',
                         border: OutlineInputBorder(),
                         contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
@@ -2885,85 +3132,44 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
                     TextFormField(
                       controller: reviewController,
                       maxLines: 2,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Review Comments',
                         hintText: 'Tell us about the service...',
                         border: OutlineInputBorder(),
                         contentPadding: EdgeInsets.all(10),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primary,
-                        minimumSize: const Size(double.infinity, 38),
-                      ),
-                      onPressed: isReviewSubmitting
-                          ? null
-                          : () async {
-                              final name = nameController.text.trim();
-                              final comment = reviewController.text.trim();
-                              if (name.isEmpty || comment.isEmpty) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Please enter your name and comment.')),
-                                );
-                                return;
-                              }
-                              
-                              dialogSetState(() => isReviewSubmitting = true);
-                              final payload = {
-                                'item_name': widget.service.title,
-                                'device_type': widget.service.deviceType,
-                                'name': name,
-                                'rating': selectedRating,
-                                'text': comment
-                              };
-                              final res = await ApiService.submitReview(payload);
-                              dialogSetState(() {
-                                isReviewSubmitting = false;
-                                if (res['success'] == true || res['data'] != null) {
-                                  isReviewSubmitted = true;
-                                } else {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Failed to submit review: ${res['error'] ?? 'Unknown error'}')),
-                                  );
-                                }
-                              });
-                            },
-                      child: isReviewSubmitting
-                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : const Text('Submit Review', style: TextStyle(fontSize: 13)),
-                    ),
-                  ] else ...[
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.green.shade50,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        children: const [
-                          Icon(Icons.check_circle, color: Colors.green),
-                          SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              'Thank you! Your review has been published.',
-                              style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 13),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                   ],
-                  
                   const SizedBox(height: 20),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.grey.shade800,
-                      minimumSize: const Size(double.infinity, 40),
+                      backgroundColor: Colors.white,
+                      foregroundColor: Colors.black,
+                      minimumSize: const Size(double.infinity, 44),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(22),
+                        side: const BorderSide(color: Colors.black12, width: 1),
+                      ),
+                      shadowColor: Colors.black.withOpacity(0.1),
+                      elevation: 2,
                     ),
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Done'),
+                    onPressed: () async {
+                      final comment = reviewController.text.trim();
+                      if (comment.isNotEmpty) {
+                        final name = nameController.text.trim().isEmpty ? 'Customer' : nameController.text.trim();
+                        final payload = {
+                          'item_name': widget.service.title,
+                          'device_type': widget.service.deviceType,
+                          'name': name,
+                          'rating': selectedRating,
+                          'text': comment
+                        };
+                        // Submit review to background API asynchronously
+                        ApiService.submitReview(payload);
+                      }
+                      Navigator.pop(context);
+                    },
+                    child: const Text('Done', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
                   ),
                 ],
               ),
@@ -2980,32 +3186,43 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
     Widget? suffixIcon,
     String? hintText,
   }) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color inputFillColor = isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF8FAFC);
+    final Color inputBorderColor = isDark ? const Color(0xFF3A3A3A) : Colors.grey.shade200;
+    final Color inputLabelColor = isDark ? Colors.white70 : Colors.black54;
+    final Color prefixIconColor = isDark ? const Color(0xFFE0533C) : AppTheme.primary.withOpacity(0.7);
+
     return InputDecoration(
       labelText: labelText,
       hintText: hintText,
-      prefixIcon: prefixIcon != null ? Icon(prefixIcon, color: AppTheme.primary.withOpacity(0.7), size: 20) : null,
+      hintStyle: TextStyle(color: isDark ? Colors.white54 : Colors.black38, fontSize: 13),
+      prefixIcon: prefixIcon != null ? Icon(prefixIcon, color: prefixIconColor, size: 20) : null,
       suffixIcon: suffixIcon,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.grey.shade300),
+        borderSide: BorderSide(color: inputBorderColor),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.grey.shade200),
+        borderSide: BorderSide(color: inputBorderColor),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppTheme.primary, width: 1.5),
+        borderSide: const BorderSide(color: Color(0xFFE0533C), width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: Colors.red, width: 1),
       ),
       filled: true,
-      fillColor: Colors.grey.shade50,
-      labelStyle: const TextStyle(fontSize: 13, color: Colors.black54),
-      floatingLabelStyle: const TextStyle(fontSize: 14, color: AppTheme.primary, fontWeight: FontWeight.w600),
+      fillColor: inputFillColor,
+      labelStyle: TextStyle(fontSize: 13, color: inputLabelColor),
+      floatingLabelStyle: TextStyle(
+        fontSize: 14,
+        color: isDark ? Colors.white70 : const Color(0xFFE0533C),
+        fontWeight: FontWeight.w600,
+      ),
     );
   }
 
@@ -3072,6 +3289,7 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
   }
 
   Widget _buildStepDeviceDetails() {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -3079,20 +3297,26 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [AppTheme.primary.withOpacity(0.06), AppTheme.primary.withOpacity(0.12)],
+              colors: isDark
+                  ? [const Color(0xFF1E3A8A).withOpacity(0.2), const Color(0xFF1E3A8A).withOpacity(0.1)]
+                  : [AppTheme.primary.withOpacity(0.06), AppTheme.primary.withOpacity(0.12)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppTheme.primary.withOpacity(0.15)),
+            border: Border.all(
+              color: isDark ? const Color(0xFF1E3A8A).withOpacity(0.3) : AppTheme.primary.withOpacity(0.15),
+            ),
           ),
           child: Row(
             children: [
               Container(
                 width: 40,
                 height: 40,
-                decoration: const BoxDecoration(
-                  color: AppTheme.badgeBg,
+                decoration: BoxDecoration(
+                  color: widget.service.imagePath != null && widget.service.imagePath!.isNotEmpty
+                      ? Colors.transparent
+                      : (isDark ? const Color(0xFF1E1E1E) : AppTheme.badgeBg),
                   shape: BoxShape.circle,
                 ),
                 child: widget.service.imagePath != null && widget.service.imagePath!.isNotEmpty
@@ -3104,7 +3328,7 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
                           errorBuilder: (context, error, stackTrace) => Center(
                             child: Icon(
                               _getServiceIcon(widget.service.title, widget.service.deviceType),
-                              color: AppTheme.primary,
+                              color: isDark ? const Color(0xFFE0533C) : AppTheme.primary,
                               size: 24,
                             ),
                           ),
@@ -3113,7 +3337,7 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
                     : Center(
                         child: Icon(
                           _getServiceIcon(widget.service.title, widget.service.deviceType),
-                          color: AppTheme.primary,
+                          color: isDark ? const Color(0xFFE0533C) : AppTheme.primary,
                           size: 24,
                         ),
                       ),
@@ -3128,15 +3352,15 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
-                        color: AppTheme.primary.withOpacity(0.8),
+                        color: isDark ? const Color(0xFFE0533C) : AppTheme.primary.withOpacity(0.8),
                       ),
                     ),
                     Text(
                       widget.service.title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.bold,
-                        color: Colors.black87,
+                        color: isDark ? Colors.white : Colors.black87,
                       ),
                     ),
                   ],
@@ -3145,11 +3369,11 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  const Text(
+                  Text(
                     'Starts at',
                     style: TextStyle(
                       fontSize: 10,
-                      color: Colors.black54,
+                      color: isDark ? Colors.white54 : Colors.black54,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -3172,9 +3396,9 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.grey.shade50,
+              color: isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade50,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.grey.shade200),
+              border: Border.all(color: isDark ? const Color(0xFF2C2C2C) : Colors.grey.shade200),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -3182,9 +3406,13 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
+                    Text(
                       'Verified Reviews',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
                     ),
                     Row(
                       children: [
@@ -3192,7 +3420,11 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
                         const SizedBox(width: 4),
                         Text(
                           '${(_reviews.fold<double>(0, (sum, r) => sum + (r['rating'] as num).toDouble()) / _reviews.length).toStringAsFixed(1)} (${_reviews.length})',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.black87),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                            color: isDark ? Colors.white70 : Colors.black87,
+                          ),
                         ),
                       ],
                     ),
@@ -3212,9 +3444,9 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
                         margin: const EdgeInsets.only(right: 10),
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: isDark ? const Color(0xFF151515) : Colors.white,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey.shade100),
+                          border: Border.all(color: isDark ? const Color(0xFF2C2C2C) : Colors.grey.shade100),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -3224,14 +3456,18 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
                               children: [
                                 Text(
                                   rev['name'] ?? 'Customer',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11,
+                                    color: isDark ? Colors.white70 : Colors.black87,
+                                  ),
                                 ),
                                 Row(
                                   children: List.generate(
                                     5,
                                     (i) => Icon(
                                       Icons.star,
-                                      color: i < rating ? Colors.amber : Colors.grey.shade200,
+                                      color: i < rating ? Colors.amber : (isDark ? Colors.grey.shade800 : Colors.grey.shade200),
                                       size: 10,
                                     ),
                                   ),
@@ -3244,7 +3480,11 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
                                 rev['text'] ?? '',
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
-                                style: TextStyle(fontSize: 10, color: Colors.grey.shade600, height: 1.2),
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: isDark ? Colors.white60 : Colors.grey.shade600,
+                                  height: 1.2,
+                                ),
                               ),
                             ),
                           ],
@@ -3267,24 +3507,29 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _isLoadingBrands
-                      ? const SkeletonLoader(width: double.infinity, height: 50, borderRadius: 16)
+                      ? const SkeletonLoader(width: double.infinity, height: 48, borderRadius: 12)
                       : _brands.isEmpty
                           ? TextFormField(
                               controller: _customBrandController,
+                              style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87, fontSize: 13),
                               decoration: _inputDecoration(labelText: 'Device Brand *', prefixIcon: Icons.branding_watermark_outlined),
                             )
                           : DropdownButtonFormField<Brand>(
                               isExpanded: true,
                               value: _selectedBrand,
+                              style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87, fontSize: 13),
+                              dropdownColor: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1E1E1E) : Colors.white,
+                              iconEnabledColor: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black54,
                               decoration: _inputDecoration(labelText: 'Device Brand *', prefixIcon: Icons.branding_watermark_outlined),
-                              hint: const Text('Select Brand...', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12)),
-                              items: _brands.map((b) => DropdownMenuItem(value: b, child: Text(b.name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)))).toList(),
+                              hint: Text('Select Brand...', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: Theme.of(context).brightness == Brightness.dark ? Colors.white54 : Colors.black45)),
+                              items: _brands.map((b) => DropdownMenuItem(value: b, child: Text(b.name, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87)))).toList(),
                               onChanged: _onBrandSelected,
                             ),
                   if (_selectedBrand?.id == 'custom') ...[
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _customBrandController,
+                      style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87, fontSize: 13),
                       decoration: _inputDecoration(labelText: 'Type brand name...', prefixIcon: Icons.edit_note_outlined),
                     ),
                   ],
@@ -3297,24 +3542,29 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _isLoadingModels
-                      ? const SkeletonLoader(width: double.infinity, height: 50, borderRadius: 16)
+                      ? const SkeletonLoader(width: double.infinity, height: 48, borderRadius: 12)
                       : (_models.isEmpty || _selectedBrand?.id == 'custom')
                           ? TextFormField(
                               controller: _customModelController,
+                              style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87, fontSize: 13),
                               decoration: _inputDecoration(labelText: 'Device Model *', prefixIcon: Icons.phone_android_outlined, hintText: 'e.g. iPhone 14'),
                             )
                           : DropdownButtonFormField<DeviceModel>(
                               isExpanded: true,
                               value: _selectedModel,
+                              style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87, fontSize: 13),
+                              dropdownColor: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1E1E1E) : Colors.white,
+                              iconEnabledColor: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black54,
                               decoration: _inputDecoration(labelText: 'Device Model *', prefixIcon: Icons.phone_android_outlined),
-                              hint: const Text('Select Model...', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12)),
-                              items: _models.map((m) => DropdownMenuItem(value: m, child: Text(m.name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)))).toList(),
+                              hint: Text('Select Model...', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: Theme.of(context).brightness == Brightness.dark ? Colors.white54 : Colors.black45)),
+                              items: _models.map((m) => DropdownMenuItem(value: m, child: Text(m.name, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87)))).toList(),
                               onChanged: (val) => setState(() => _selectedModel = val),
                             ),
                   if (_selectedModel?.id == 'custom' && _selectedBrand?.id != 'custom') ...[
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _customModelController,
+                      style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87, fontSize: 13),
                       decoration: _inputDecoration(labelText: 'Type model name...', prefixIcon: Icons.edit_note_outlined),
                     ),
                   ],
@@ -3328,17 +3578,19 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
   }
 
   Widget _buildStepIssueDetails() {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text(
+        Text(
           'WHAT IS GOING WRONG?',
-          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black54, letterSpacing: 0.8),
+          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.white60 : Colors.black54, letterSpacing: 0.8),
         ),
         const SizedBox(height: 10),
         TextFormField(
           controller: _descriptionController,
           maxLines: 4,
+          style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 13),
           decoration: _inputDecoration(
             labelText: 'Describe the Issue *',
             prefixIcon: Icons.description_outlined,
@@ -3346,9 +3598,9 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
           ),
         ),
         const SizedBox(height: 16),
-        const Text(
+        Text(
           'VISUAL PROOF (OPTIONAL)',
-          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black54, letterSpacing: 0.8),
+          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.white60 : Colors.black54, letterSpacing: 0.8),
         ),
         const SizedBox(height: 10),
         GestureDetector(
@@ -3356,10 +3608,12 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
             decoration: BoxDecoration(
-              color: Colors.grey.shade50,
-              borderRadius: BorderRadius.circular(16),
+              color: isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: _imageFile != null ? AppTheme.primary.withOpacity(0.3) : Colors.grey.shade300,
+                color: _imageFile != null
+                    ? const Color(0xFFE0533C).withOpacity(0.3)
+                    : (isDark ? const Color(0xFF3A3A3A) : Colors.grey.shade300),
                 style: BorderStyle.solid,
               ),
             ),
@@ -3369,23 +3623,23 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade200,
+                      color: isDark ? const Color(0xFF151515) : Colors.grey.shade200,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.add_photo_alternate_outlined, color: Colors.black54),
+                    child: Icon(Icons.add_photo_alternate_outlined, color: isDark ? Colors.white70 : Colors.black54),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text('Upload Device Photo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87)),
-                        SizedBox(height: 2),
-                        Text('Helps technician understand the damage better', style: TextStyle(fontSize: 11, color: Colors.black45)),
+                      children: [
+                        Text('Upload Device Photo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? Colors.white : Colors.black87)),
+                        const SizedBox(height: 2),
+                        Text('Helps technician understand the damage better', style: TextStyle(fontSize: 11, color: isDark ? Colors.white38 : Colors.black45)),
                       ],
                     ),
                   ),
-                  const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.black38),
+                  Icon(Icons.arrow_forward_ios, size: 14, color: isDark ? Colors.white38 : Colors.black38),
                 ] else ...[
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
@@ -3400,7 +3654,7 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
                           _imageFile!.path.split('/').last,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? Colors.white : Colors.black87),
                         ),
                         const SizedBox(height: 2),
                         const Text('Image attached successfully', style: TextStyle(fontSize: 11, color: AppTheme.success, fontWeight: FontWeight.w500)),
@@ -3421,16 +3675,18 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
   }
 
   Widget _buildStepContactDetails() {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text(
+        Text(
           'YOUR INFORMATION',
-          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black54, letterSpacing: 0.8),
+          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.white60 : Colors.black54, letterSpacing: 0.8),
         ),
         const SizedBox(height: 10),
         TextFormField(
           controller: _nameController,
+          style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 13),
           decoration: _inputDecoration(labelText: 'Full Name *', prefixIcon: Icons.person_outline),
           validator: (v) => v == null || v.trim().isEmpty ? 'Enter full name' : null,
         ),
@@ -3440,6 +3696,7 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
           keyboardType: TextInputType.phone,
           maxLength: 10,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 13),
           decoration: _inputDecoration(labelText: '10-Digit Mobile Number *', prefixIcon: Icons.phone_outlined),
           validator: (v) {
             if (v == null || v.trim().isEmpty) return 'Enter mobile number';
@@ -3450,9 +3707,9 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
           },
         ),
         const SizedBox(height: 8),
-        const Text(
+        Text(
           'SCHEDULE & LOCATION',
-          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black54, letterSpacing: 0.8),
+          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.white60 : Colors.black54, letterSpacing: 0.8),
         ),
         const SizedBox(height: 10),
         Row(
@@ -3463,6 +3720,7 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
                 controller: _pincodeController,
                 keyboardType: TextInputType.number,
                 maxLength: 6,
+                style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 13),
                 decoration: _inputDecoration(
                   labelText: 'Pincode *',
                   prefixIcon: Icons.location_on_outlined,
@@ -3491,18 +3749,18 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    border: Border.all(color: Colors.grey.shade200),
-                    borderRadius: BorderRadius.circular(16),
+                    color: isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade50,
+                    border: Border.all(color: isDark ? const Color(0xFF3A3A3A) : Colors.grey.shade200),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.calendar_month_outlined, color: AppTheme.primary, size: 20),
+                      Icon(Icons.calendar_month_outlined, color: isDark ? const Color(0xFFE0533C) : AppTheme.primary, size: 20),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           DateFormat('dd MMM yyyy').format(_selectedDate), 
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87)
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? Colors.white70 : Colors.black87)
                         ),
                       ),
                     ],
@@ -3550,6 +3808,7 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
   }
 
   Widget _buildStepSummaryConfirm() {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final brandName = _selectedBrand?.id == 'custom'
         ? _customBrandController.text.trim()
         : _selectedBrand?.name ?? _customBrandController.text.trim();
@@ -3560,16 +3819,21 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text(
+        Text(
           'BOOKING SUMMARY TICKET',
-          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black54, letterSpacing: 0.8),
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            color: isDark ? Colors.white60 : Colors.black54,
+            letterSpacing: 0.8,
+          ),
         ),
         const SizedBox(height: 10),
         Container(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.grey.shade200),
+            border: Border.all(color: isDark ? const Color(0xFF2C2C2C) : Colors.grey.shade200),
             boxShadow: AppTheme.premiumShadow,
           ),
           child: Column(
@@ -3577,7 +3841,11 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: const BoxDecoration(
-                  gradient: AppTheme.primaryGradient,
+                  gradient: LinearGradient(
+                    colors: [Color(0xFFE0533C), Color(0xFFC0392B)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
                   borderRadius: BorderRadius.vertical(top: Radius.circular(19)),
                 ),
                 child: Row(
@@ -3608,14 +3876,14 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
                     _summaryRow('Pincode', _pincodeController.text.trim()),
                     const SizedBox(height: 8),
                     _summaryRow('Visit Address', _addressController.text.trim()),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 12),
-                      child: Divider(color: Color(0xFFF1F5F9), height: 1),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Divider(color: isDark ? const Color(0xFF2C2C2C) : const Color(0xFFF1F5F9), height: 1),
                     ),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Service Charge', style: TextStyle(color: Colors.black54, fontSize: 13)),
+                        Text('Service Charge', style: TextStyle(color: isDark ? Colors.white70 : Colors.black54, fontSize: 13)),
                         Text('₹${widget.service.price.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.w900, color: AppTheme.accent, fontSize: 18)),
                       ],
                     ),
@@ -3630,11 +3898,27 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
   }
 
   Widget _summaryRow(String label, String value) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(width: 100, child: Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12))),
-        Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87, fontSize: 12))),
+        SizedBox(
+          width: 100,
+          child: Text(
+            label,
+            style: TextStyle(color: isDark ? Colors.white38 : Colors.grey, fontSize: 12),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white70 : Colors.black87,
+              fontSize: 12,
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -3664,12 +3948,19 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
       'Summary & Confirm',
     ];
 
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color sheetBg = isDark ? const Color(0xFF121212) : Colors.white;
+    final Color titleColor = isDark ? Colors.white : Colors.black87;
+    final Color dividerColor = isDark ? const Color(0xFF2C2C2C) : const Color(0xFFF1F5F9);
+    final Color closeBgColor = isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade100;
+    final Color progressTrackBg = isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade100;
+
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        boxShadow: [
-          BoxShadow(color: Colors.black12, blurRadius: 16, spreadRadius: 2),
+      decoration: BoxDecoration(
+        color: sheetBg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        boxShadow: const [
+          BoxShadow(color: Colors.black26, blurRadius: 16, spreadRadius: 2),
         ],
       ),
       padding: EdgeInsets.only(
@@ -3691,7 +3982,7 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
                   height: 4,
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
+                    color: isDark ? const Color(0xFF333333) : Colors.grey.shade300,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -3702,20 +3993,20 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
                   Expanded(
                     child: Text(
                       'Book ${widget.service.title}',
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: titleColor),
                     ),
                   ),
                   IconButton(
                     style: IconButton.styleFrom(
-                      backgroundColor: Colors.grey.shade100,
+                      backgroundColor: closeBgColor,
                       minimumSize: const Size(32, 32),
                     ),
-                    icon: const Icon(Icons.close, size: 18, color: Colors.black87),
+                    icon: Icon(Icons.close, size: 18, color: titleColor),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
               ),
-              const Divider(height: 20, color: Color(0xFFF1F5F9)),
+              Divider(height: 20, color: dividerColor),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -3724,11 +4015,11 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
                     children: [
                       Text(
                         'STEP ${_currentStep + 1} OF 4',
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primary, letterSpacing: 0.8),
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFE0533C), letterSpacing: 0.8),
                       ),
                       Text(
                         stepTitles[_currentStep],
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black87),
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: titleColor),
                       ),
                     ],
                   ),
@@ -3738,8 +4029,8 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
                     child: LinearProgressIndicator(
                       value: stepProgress,
                       minHeight: 6,
-                      backgroundColor: Colors.grey.shade100,
-                      valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primary),
+                      backgroundColor: progressTrackBg,
+                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFE0533C)),
                     ),
                   ),
                 ],
@@ -3759,11 +4050,17 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
                         child: OutlinedButton(
                           style: OutlinedButton.styleFrom(
                             minimumSize: const Size(double.infinity, 48),
-                            side: const BorderSide(color: Color(0xFFE2E8F0)),
+                            side: BorderSide(color: isDark ? const Color(0xFF3A3A3A) : const Color(0xFFE2E8F0)),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                           ),
                           onPressed: _prevStep,
-                          child: const Text('Back', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
+                          child: Text(
+                            'Back',
+                            style: TextStyle(
+                              color: isDark ? Colors.white70 : Colors.black87,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -3771,22 +4068,26 @@ class _BookingModalSheetState extends State<BookingModalSheet> {
                     flex: 2,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: _currentStep == 3 ? AppTheme.accent : AppTheme.primary,
+                        backgroundColor: Colors.white,
+                        foregroundColor: Colors.black,
                         minimumSize: const Size(double.infinity, 48),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                        shadowColor: (_currentStep == 3 ? AppTheme.accent : AppTheme.primary).withOpacity(0.4),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(24),
+                          side: const BorderSide(color: Colors.black12, width: 1),
+                        ),
+                        shadowColor: Colors.black.withOpacity(0.1),
                         elevation: 2,
                       ),
                       onPressed: _isSubmitting 
                           ? null 
                           : (_currentStep == 3 ? _submitBooking : _nextStep),
                       child: _isSubmitting
-                          ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2))
                           : Text(
                               _currentStep == 3 
                                   ? 'CONFIRM BOOKING — ₹${widget.service.price.toStringAsFixed(0)}' 
                                   : 'Continue',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black),
                             ),
                     ),
                   ),
@@ -3844,7 +4145,9 @@ class _SkeletonLoaderState extends State<SkeletonLoader> with SingleTickerProvid
         width: widget.width,
         height: widget.height,
         decoration: BoxDecoration(
-          color: Colors.grey.shade200,
+          color: Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFF2C2C2C)
+              : Colors.grey.shade200,
           borderRadius: BorderRadius.circular(widget.borderRadius),
         ),
       ),

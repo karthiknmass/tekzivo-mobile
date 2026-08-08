@@ -6,16 +6,18 @@ class ApiConstants {
   static const String baseUrl = 'https://karthikeyankasi.pythonanywhere.com/api';
 
   
-  // Local Backend URLs (Commented out)
-  // static String get baseUrl {
-  //   if (kIsWeb) {
-  //     return 'http://localhost:5000/api';
-  //   } else if (Platform.isAndroid) {
-  //     return 'http://10.0.2.2:5000/api'; // Android Emulator bridge
-  //   } else {
-  //     return 'http://127.0.0.1:5000/api'; // iOS Simulator or desktop
-  //   }
-  // }
+  // Local Backend URLs (Commented out for Production Release)
+  /*
+  static String get baseUrl {
+    if (kIsWeb) {
+      return 'http://localhost:5000/api';
+    } else if (Platform.isAndroid) {
+      return 'http://10.0.2.2:5000/api'; // Android Emulator bridge
+    } else {
+      return 'http://127.0.0.1:5000/api'; // iOS Simulator or desktop
+    }
+  }
+  */
   
   
 
